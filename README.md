@@ -97,9 +97,35 @@ republished if it still has an active variant. Republishing updates
 `publishedAt`. Public product responses include active variants and their
 images; COP prices are decimal strings to preserve BIGINT precision.
 
-Product publication locks the product and an active variant. Future variant
-mutations must lock the product first and reject changes that leave a published
-product without an active variant.
+Product publication and variant mutations lock the product first; deactivating
+the last active variant of a published product is rejected, including when
+requests run concurrently.
+
+## Variants and service integration
+
+`GET` and `POST /admin/v1/products/:productId/variants` list and create
+variants; `GET` and `PATCH /admin/v1/variants/:id` retrieve and update them.
+`PATCH /admin/v1/variants/:id/activate` and `/deactivate` change their state.
+These operations use the corresponding `catalog.products.read`, `create`,
+`update`, and `deactivate` permissions. UUIDs and product ownership never
+change; no physical delete endpoint is provided. SKU and non-null barcode are
+unique. `priceCop` and `compareAtPriceCop` are positive decimal strings bounded
+by PostgreSQL BIGINT; a reference price must exceed the resulting current
+price. Set `compareAtPriceCop`, `barcode`, or `volumeMl` to null to clear it.
+
+Trusted services can call `GET /internal/v1/variants/:id` with
+`Authorization: Bearer <CATALOG_SERVICE_API_TOKEN>`. Configure an independent
+secret of at least 32 characters, different from the BFF token; if absent,
+requests are denied. Never expose it to browsers. The response includes the
+product and variant names, SKU, decimal-string `priceCop`, `productStatus`,
+`isActive`, and `isPurchasable`. Commerce must revalidate this response during
+checkout, reject `isPurchasable: false`, and preserve order price snapshots.
+Inventory may resolve inactive variants by UUID for historical operations.
+Checkout integration in Commerce remains a separate implementation.
+The response reflects Catalog at the time of the request; it does not reserve
+the price or prevent later status changes across services.
+Variant changes are logged, but durable audit storage requires platform
+integration.
 
 ## Compile and run the project
 

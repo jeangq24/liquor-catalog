@@ -6,6 +6,7 @@ import { DatabaseModule } from './infrastructure/database/database.module.js';
 import { BrandsModule } from './modules/brands/brands.module.js';
 import { CategoriesModule } from './modules/categories/categories.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
+import { VariantsModule } from './modules/variants/variants.module.js';
 import { validateConfiguration } from './config/configuration.js';
 
 @Module({
@@ -15,6 +16,7 @@ import { validateConfiguration } from './config/configuration.js';
     BrandsModule,
     CategoriesModule,
     ProductsModule,
+    VariantsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

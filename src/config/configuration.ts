@@ -21,5 +21,17 @@ export function validateConfiguration(configuration: Record<string, unknown>) {
       'CATALOG_INTERNAL_API_TOKEN must contain at least 32 characters',
     );
   }
+  const serviceToken = configuration.CATALOG_SERVICE_API_TOKEN;
+  if (
+    serviceToken !== undefined &&
+    (typeof serviceToken !== 'string' ||
+      serviceToken !== serviceToken.trim() ||
+      serviceToken.length < MIN_INTERNAL_TOKEN_LENGTH ||
+      serviceToken === token)
+  ) {
+    throw new Error(
+      'CATALOG_SERVICE_API_TOKEN must contain at least 32 characters and differ from CATALOG_INTERNAL_API_TOKEN',
+    );
+  }
   return configuration;
 }
