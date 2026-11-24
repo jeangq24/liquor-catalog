@@ -31,6 +31,28 @@
 $ pnpm install
 ```
 
+## Database
+
+The service uses PostgreSQL and Drizzle ORM. Create a local `.env` from the
+example and set `DATABASE_URL` to the PostgreSQL connection string:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Drizzle Kit reads the schema from
+`src/infrastructure/database/schema/catalog.schema.ts` and writes versioned
+migrations to `drizzle/`. Generate and apply migrations with:
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+```
+
+The local database used by `.env.example` is `licoresyaaa`; create it before
+applying migrations. In Supabase, use the platform connection string and keep
+the `catalog` schema as the service-owned schema.
+
 ## Compile and run the project
 
 ```bash
