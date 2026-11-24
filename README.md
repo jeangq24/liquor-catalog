@@ -127,6 +127,31 @@ the price or prevent later status changes across services.
 Variant changes are logged, but durable audit storage requires platform
 integration.
 
+## Product images
+
+`GET` and `POST /admin/v1/products/:productId/images` list and register image
+references. `GET` and `PATCH /admin/v1/images/:id` retrieve or update an image.
+Reads require `catalog.products.read`; registration and updates require
+`catalog.products.update`. An image belongs to a product and optionally one of
+its variants. `sortOrder` controls display order; ties are ordered by UUID.
+Setting `isPrimary` to true atomically replaces the previous primary image in
+the same product or variant scope. Changing the variant of a primary image
+likewise replaces the primary in the destination scope.
+
+`storagePath` is a unique relative object key (up to 1024 ASCII characters,
+using letters, numbers, `.`, `_`, `~`, `-`, and `/` between segments). URLs,
+empty segments, and `.` or `..` segments are rejected. Only the path and
+metadata are stored in PostgreSQL, never image bytes. Paths cannot be replaced
+through this API while storage is unavailable, to avoid abandoning an existing
+file. Administrators may update `variantId`, `altText`, `isPrimary`, and
+`sortOrder`.
+
+Supabase Storage, uploads, public URLs and physical file verification are
+**not yet integrated**. Registering a key does not verify that a file exists
+or is an image. Until the storage integration can remove the file as well,
+`DELETE /admin/v1/images/:id` returns 503 and preserves the reference. Image
+changes are logged with the actor; durable audit storage remains pending.
+
 ## Compile and run the project
 
 ```bash
