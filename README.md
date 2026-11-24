@@ -53,6 +53,34 @@ The local database used by `.env.example` is `licoresyaaa`; create it before
 applying migrations. In Supabase, use the platform connection string and keep
 the `catalog` schema as the service-owned schema.
 
+To run the PostgreSQL schema tests, configure `POSTGRES_TEST_DATABASE_URL` with
+a dedicated test database, apply the migrations to it, and run
+`pnpm test:postgres`. Run `pnpm test:e2e` to test the HTTP API against the same
+dedicated database. These database-dependent tests are skipped if the test
+database URL is not set.
+
+## Brands and categories
+
+The public endpoints `GET /public/v1/brands`, `GET /public/v1/categories`,
+and `GET /public/v1/categories/tree` return active entries. Administrative
+endpoints live under `/admin/v1/brands` and `/admin/v1/categories`. They
+support list, get by ID, create, update, activate and deactivate; categories
+also support `GET /tree` and `GET /slug/:slug`.
+
+Administrative requests require `Authorization: Bearer <CATALOG_INTERNAL_API_TOKEN>`,
+`X-Actor-Id` (a UUID), and `X-Actor-Permissions` (comma-separated permissions).
+The token must contain at least 32 characters. Only a trusted BFF may hold the
+token and set actor headers after validating the Supabase JWT and resolving
+permissions; never expose this contract or token to browsers. If no token is
+configured, administrative requests are denied.
+
+Permissions follow `catalog.brands.*` and `catalog.categories.*`, with `read`,
+`create`, `update`, and `deactivate` actions. Activation requires `update`.
+Active categories require an active parent; a category with active descendants
+cannot be deactivated, and hierarchy cycles are rejected. Administrative
+changes are logged with actor and resource identifiers; durable audit storage
+requires the platform audit integration.
+
 ## Compile and run the project
 
 ```bash
