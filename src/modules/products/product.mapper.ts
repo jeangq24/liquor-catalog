@@ -3,6 +3,7 @@ import {
   products,
   productVariants,
 } from '../../infrastructure/database/schema/catalog.schema.js';
+import type { ProductResponseDto } from './dto/product-response.dto.js';
 
 export type Product = typeof products.$inferSelect;
 export type ProductVariant = typeof productVariants.$inferSelect;
@@ -22,7 +23,7 @@ export function mapProduct(product: Product, categoryIds: string[]) {
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
     publishedAt: product.publishedAt,
-  };
+  } satisfies ProductResponseDto;
 }
 
 export function mapPublicProduct(

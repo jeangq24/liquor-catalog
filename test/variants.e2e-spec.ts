@@ -209,7 +209,7 @@ describe.skipIf(!databaseUrl)('Variants HTTP API', () => {
       .get(`/admin/v1/products/${productId}/variants`)
       .set(auth)
       .expect(200);
-    expect(list.body).toEqual(
+    expect(list.body.items).toEqual(
       expect.arrayContaining([expect.objectContaining({ id, productId })]),
     );
     await api.get(`/admin/v1/variants/${id}`).set(auth).expect(200);

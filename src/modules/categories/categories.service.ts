@@ -6,8 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { eq, sql } from 'drizzle-orm';
+import { and, count, eq, ilike, or, sql } from 'drizzle-orm';
 import { rethrowCatalogDatabaseError } from '../../common/database/database-error.js';
+import {
+  mapPage,
+  pageOffset,
+  searchPattern,
+} from '../../common/pagination/page.js';
 import type { Database } from '../../infrastructure/database/database.types.js';
 import { categories } from '../../infrastructure/database/schema/catalog.schema.js';
 import { mapCategory, type CategoryTreeNode } from './category.mapper.js';
@@ -15,6 +20,7 @@ import type {
   CreateCategoryDto,
   UpdateCategoryDto,
 } from './dto/category.dto.js';
+import type { ListCategoriesDto } from './dto/list-categories.dto.js';
 
 // Serializa las escrituras jerárquicas entre instancias de Catalog.
 const CATEGORY_LOCK_NAMESPACE = 1128354865;
@@ -53,6 +59,40 @@ export class CategoriesService {
       else if (!node.parentId) roots.push(node);
     }
     return roots;
+  }
+
+  async listAdmin(query: ListCategoriesDto) {
+    const filter = and(
+      query.isActive === undefined
+        ? undefined
+        : eq(categories.isActive, query.isActive),
+      query.parentId === undefined
+        ? undefined
+        : eq(categories.parentId, query.parentId),
+      query.search === undefined
+        ? undefined
+        : or(
+            ilike(categories.name, searchPattern(query.search)),
+            ilike(categories.slug, searchPattern(query.search)),
+          ),
+    );
+    return this.db.transaction(
+      async (tx) => {
+        const [{ total }] = await tx
+          .select({ total: count() })
+          .from(categories)
+          .where(filter);
+        const rows = await tx
+          .select()
+          .from(categories)
+          .where(filter)
+          .orderBy(categories.sortOrder, categories.name, categories.id)
+          .limit(query.limit)
+          .offset(pageOffset(query));
+        return mapPage(rows.map(mapCategory), total, query);
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   async findById(id: string) {

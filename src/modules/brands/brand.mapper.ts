@@ -1,4 +1,5 @@
 import { brands } from '../../infrastructure/database/schema/catalog.schema.js';
+import type { BrandResponseDto } from './dto/brand-response.dto.js';
 
 export function mapBrand(brand: typeof brands.$inferSelect) {
   return {
@@ -10,5 +11,5 @@ export function mapBrand(brand: typeof brands.$inferSelect) {
     isActive: brand.isActive,
     createdAt: brand.createdAt,
     updatedAt: brand.updatedAt,
-  };
+  } satisfies BrandResponseDto;
 }

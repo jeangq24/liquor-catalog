@@ -1,4 +1,5 @@
 import type { productImages } from '../../infrastructure/database/schema/catalog.schema.js';
+import type { ImageResponseDto } from './dto/image-response.dto.js';
 
 type Image = typeof productImages.$inferSelect;
 
@@ -12,5 +13,5 @@ export function mapImage(image: Image) {
     isPrimary: image.isPrimary,
     sortOrder: image.sortOrder,
     createdAt: image.createdAt,
-  };
+  } satisfies ImageResponseDto;
 }

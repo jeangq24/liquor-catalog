@@ -1,7 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { eq } from 'drizzle-orm';
+import { and, count, eq, ilike, or } from 'drizzle-orm';
 import { rethrowCatalogDatabaseError } from '../../common/database/database-error.js';
+import {
+  mapPage,
+  pageOffset,
+  searchPattern,
+} from '../../common/pagination/page.js';
+import type { ActiveSearchQueryDto } from '../../common/pagination/pagination.dto.js';
 import type { Database } from '../../infrastructure/database/database.types.js';
 import { brands } from '../../infrastructure/database/schema/catalog.schema.js';
 import { mapBrand } from './brand.mapper.js';
@@ -22,6 +28,37 @@ export class BrandsService {
           .orderBy(brands.name, brands.id)
       : await this.db.select().from(brands).orderBy(brands.name, brands.id);
     return rows.map(mapBrand);
+  }
+
+  async listAdmin(query: ActiveSearchQueryDto) {
+    const filter = and(
+      query.isActive === undefined
+        ? undefined
+        : eq(brands.isActive, query.isActive),
+      query.search === undefined
+        ? undefined
+        : or(
+            ilike(brands.name, searchPattern(query.search)),
+            ilike(brands.slug, searchPattern(query.search)),
+          ),
+    );
+    return this.db.transaction(
+      async (tx) => {
+        const [{ total }] = await tx
+          .select({ total: count() })
+          .from(brands)
+          .where(filter);
+        const rows = await tx
+          .select()
+          .from(brands)
+          .where(filter)
+          .orderBy(brands.name, brands.id)
+          .limit(query.limit)
+          .offset(pageOffset(query));
+        return mapPage(rows.map(mapBrand), total, query);
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   async findById(id: string) {

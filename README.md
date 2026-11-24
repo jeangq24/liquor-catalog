@@ -81,6 +81,37 @@ cannot be deactivated, and hierarchy cycles are rejected. Administrative
 changes are logged with actor and resource identifiers; durable audit storage
 requires the platform audit integration.
 
+## Administrative queries and OpenAPI
+
+The administrative lists of brands, categories, products, product variants,
+and product images return `{ "items": [...], "page": 1, "limit": 25,
+"total": 0 }`. This replaces the previous unpaginated array response in v1.
+`page` starts at 1 (maximum 1000000); `limit` defaults to 25 and is capped at
+100. Ordering is stable by name and UUID, or by sort order and UUID for
+images; categories use sort order, name and UUID. An out-of-range page returns
+an empty `items` array and the matching total. Invalid or unknown query
+parameters return 400.
+
+Filters:
+
+- Brands: `search` (name or slug), `isActive`.
+- Categories: `search` (name or slug), `isActive`, `parentId`.
+- Products: `search` (name or slug), `status`, `brandId`, `categoryId`,
+  `isFeatured`.
+- Product variants: `search` (name, SKU or barcode), `isActive`.
+- Product images: `variantId`, `isPrimary`.
+
+Search is a case-insensitive literal substring; `%` and `_` are not wildcards.
+Boolean filters accept only `true` or `false`. The category tree remains a
+complete, unpaginated hierarchy. Public endpoints are unchanged.
+
+Set `SWAGGER_ENABLED=true` to serve the administrative OpenAPI UI at `/docs`
+and its specification at `/docs-json`. Documentation is disabled by default;
+if enabled in a deployed environment, restrict access at the network or proxy
+layer. The UI documents the BFF bearer token, actor headers, required
+permissions, query parameters, and request and response schemas; it does not
+authenticate users or replace BFF authorization.
+
 ## Products
 
 Administrative product operations use `/admin/v1/products`: list, get by ID

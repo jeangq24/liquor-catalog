@@ -6,8 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, count, eq, ilike, ne, or } from 'drizzle-orm';
 import { rethrowCatalogDatabaseError } from '../../common/database/database-error.js';
+import {
+  mapPage,
+  pageOffset,
+  searchPattern,
+} from '../../common/pagination/page.js';
+import type { ActiveSearchQueryDto } from '../../common/pagination/pagination.dto.js';
 import type {
   Database,
   DatabaseTransaction,
@@ -28,18 +34,42 @@ export class VariantsService {
 
   constructor(@InjectDrizzle() private readonly db: Database) {}
 
-  async list(productId: string) {
-    const [product] = await this.db
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.id, productId));
-    if (!product) throw new NotFoundException('Product not found');
-    const rows = await this.db
-      .select()
-      .from(productVariants)
-      .where(eq(productVariants.productId, productId))
-      .orderBy(productVariants.name, productVariants.id);
-    return rows.map(mapVariant);
+  async list(productId: string, query: ActiveSearchQueryDto) {
+    const filter = and(
+      eq(productVariants.productId, productId),
+      query.isActive === undefined
+        ? undefined
+        : eq(productVariants.isActive, query.isActive),
+      query.search === undefined
+        ? undefined
+        : or(
+            ilike(productVariants.name, searchPattern(query.search)),
+            ilike(productVariants.sku, searchPattern(query.search)),
+            ilike(productVariants.barcode, searchPattern(query.search)),
+          ),
+    );
+    return this.db.transaction(
+      async (tx) => {
+        const [product] = await tx
+          .select({ id: products.id })
+          .from(products)
+          .where(eq(products.id, productId));
+        if (!product) throw new NotFoundException('Product not found');
+        const [{ total }] = await tx
+          .select({ total: count() })
+          .from(productVariants)
+          .where(filter);
+        const rows = await tx
+          .select()
+          .from(productVariants)
+          .where(filter)
+          .orderBy(productVariants.name, productVariants.id)
+          .limit(query.limit)
+          .offset(pageOffset(query));
+        return mapPage(rows.map(mapVariant), total, query);
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   async find(id: string) {

@@ -7,18 +7,30 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import {
+  ApiAdminController,
+  ApiPageResponse,
+} from '../../common/openapi/catalog-openapi.decorators.js';
+import {
+  CategoryResponseDto,
+  CategoryTreeResponseDto,
+} from './dto/category-response.dto.js';
 import { CatalogAuthGuard } from '../../common/security/catalog-auth.guard.js';
 import { CatalogPermissionGuard } from '../../common/security/catalog-permission.guard.js';
 import { CatalogPermission } from '../../common/security/catalog-permissions.js';
 import { RequirePermissions } from '../../common/security/require-permissions.decorator.js';
 import { CategoriesService } from './categories.service.js';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto.js';
+import { ListCategoriesDto } from './dto/list-categories.dto.js';
 
 @Controller('admin/v1/categories')
+@ApiAdminController('Admin categories')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -31,36 +43,42 @@ export class CategoriesController {
   constructor(private readonly categories: CategoriesService) {}
 
   @Get()
+  @ApiPageResponse(CategoryResponseDto)
   @RequirePermissions(CatalogPermission.CATEGORY_READ)
-  list() {
-    return this.categories.list();
+  list(@Query() query: ListCategoriesDto) {
+    return this.categories.listAdmin(query);
   }
 
   @Get('tree')
+  @ApiOkResponse({ type: CategoryTreeResponseDto, isArray: true })
   @RequirePermissions(CatalogPermission.CATEGORY_READ)
   tree() {
     return this.categories.tree();
   }
 
   @Get('slug/:slug')
+  @ApiOkResponse({ type: CategoryResponseDto })
   @RequirePermissions(CatalogPermission.CATEGORY_READ)
   findBySlug(@Param('slug') slug: string) {
     return this.categories.findBySlug(slug);
   }
 
   @Get(':id')
+  @ApiOkResponse({ type: CategoryResponseDto })
   @RequirePermissions(CatalogPermission.CATEGORY_READ)
   find(@Param('id', ParseUUIDPipe) id: string) {
     return this.categories.findById(id);
   }
 
   @Post()
+  @ApiCreatedResponse({ type: CategoryResponseDto })
   @RequirePermissions(CatalogPermission.CATEGORY_CREATE)
   create(@Body() dto: CreateCategoryDto, @Headers('x-actor-id') actor: string) {
     return this.categories.create(dto, actor);
   }
 
   @Patch(':id')
+  @ApiOkResponse({ type: CategoryResponseDto })
   @RequirePermissions(CatalogPermission.CATEGORY_UPDATE)
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -71,6 +89,7 @@ export class CategoriesController {
   }
 
   @Patch(':id/activate')
+  @ApiOkResponse({ type: CategoryResponseDto })
   @RequirePermissions(CatalogPermission.CATEGORY_UPDATE)
   activate(
     @Param('id', ParseUUIDPipe) id: string,
@@ -80,6 +99,7 @@ export class CategoriesController {
   }
 
   @Patch(':id/deactivate')
+  @ApiOkResponse({ type: CategoryResponseDto })
   @RequirePermissions(CatalogPermission.CATEGORY_DEACTIVATE)
   deactivate(
     @Param('id', ParseUUIDPipe) id: string,

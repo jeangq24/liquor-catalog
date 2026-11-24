@@ -192,7 +192,7 @@ describe.skipIf(!databaseUrl)('Product image HTTP API', () => {
       .get(`/admin/v1/products/${product.id}/images`)
       .set(auth)
       .expect(200);
-    expect(rows.body).toEqual([
+    expect(rows.body.items).toEqual([
       expect.objectContaining({ id: second, isPrimary: true }),
       expect.objectContaining({
         id: variantImage,
@@ -228,7 +228,7 @@ describe.skipIf(!databaseUrl)('Product image HTTP API', () => {
       .get(`/admin/v1/products/${product.id}/images`)
       .set(auth)
       .expect(200);
-    expect(rows.body).toEqual([
+    expect(rows.body.items).toEqual([
       expect.objectContaining({ id: first, isPrimary: true }),
       expect.objectContaining({ id: second, isPrimary: false }),
       expect.objectContaining({ id: variantImage, isPrimary: false }),

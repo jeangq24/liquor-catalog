@@ -5,8 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, count, eq, exists, ilike, inArray, or } from 'drizzle-orm';
 import { rethrowCatalogDatabaseError } from '../../common/database/database-error.js';
+import {
+  mapPage,
+  pageOffset,
+  searchPattern,
+} from '../../common/pagination/page.js';
 import type {
   Database,
   DatabaseExecutor,
@@ -21,6 +26,7 @@ import {
   productVariants,
 } from '../../infrastructure/database/schema/catalog.schema.js';
 import type { CreateProductDto, UpdateProductDto } from './dto/product.dto.js';
+import type { ListProductsDto } from './dto/list-products.dto.js';
 import { ProductStatus } from './product.constants.js';
 import {
   mapProduct,
@@ -34,12 +40,54 @@ export class ProductsService {
 
   constructor(@InjectDrizzle() private readonly db: Database) {}
 
-  async list() {
-    const rows = await this.db
-      .select()
-      .from(products)
-      .orderBy(products.name, products.id);
-    return this.mapProducts(rows, this.db);
+  async list(query: ListProductsDto) {
+    const filter = and(
+      query.status === undefined
+        ? undefined
+        : eq(products.status, query.status),
+      query.brandId === undefined
+        ? undefined
+        : eq(products.brandId, query.brandId),
+      query.isFeatured === undefined
+        ? undefined
+        : eq(products.isFeatured, query.isFeatured),
+      query.search === undefined
+        ? undefined
+        : or(
+            ilike(products.name, searchPattern(query.search)),
+            ilike(products.slug, searchPattern(query.search)),
+          ),
+      query.categoryId === undefined
+        ? undefined
+        : exists(
+            this.db
+              .select({ productId: productCategories.productId })
+              .from(productCategories)
+              .where(
+                and(
+                  eq(productCategories.productId, products.id),
+                  eq(productCategories.categoryId, query.categoryId),
+                ),
+              ),
+          ),
+    );
+    return this.db.transaction(
+      async (tx) => {
+        const [{ total }] = await tx
+          .select({ total: count() })
+          .from(products)
+          .where(filter);
+        const rows = await tx
+          .select()
+          .from(products)
+          .where(filter)
+          .orderBy(products.name, products.id)
+          .limit(query.limit)
+          .offset(pageOffset(query));
+        return mapPage(await this.mapProducts(rows, tx), total, query);
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   async findById(id: string) {

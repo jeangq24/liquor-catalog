@@ -8,18 +8,31 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiServiceUnavailableResponse,
+} from '@nestjs/swagger';
+import {
+  ApiAdminController,
+  ApiPageResponse,
+} from '../../common/openapi/catalog-openapi.decorators.js';
+import { ImageResponseDto } from './dto/image-response.dto.js';
 import { CatalogAuthGuard } from '../../common/security/catalog-auth.guard.js';
 import { CatalogPermissionGuard } from '../../common/security/catalog-permission.guard.js';
 import { CatalogPermission } from '../../common/security/catalog-permissions.js';
 import { RequirePermissions } from '../../common/security/require-permissions.decorator.js';
 import { CreateImageDto, UpdateImageDto } from './dto/image.dto.js';
+import { ListImagesDto } from './dto/list-images.dto.js';
 import { ImagesService } from './images.service.js';
 
 @Controller('admin/v1/products/:productId/images')
+@ApiAdminController('Admin images')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -32,12 +45,17 @@ export class ProductImagesController {
   constructor(private readonly images: ImagesService) {}
 
   @Get()
+  @ApiPageResponse(ImageResponseDto)
   @RequirePermissions(CatalogPermission.PRODUCT_READ)
-  list(@Param('productId', ParseUUIDPipe) productId: string) {
-    return this.images.list(productId);
+  list(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Query() query: ListImagesDto,
+  ) {
+    return this.images.list(productId, query);
   }
 
   @Post()
+  @ApiCreatedResponse({ type: ImageResponseDto })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   create(
     @Param('productId', ParseUUIDPipe) productId: string,
@@ -49,6 +67,7 @@ export class ProductImagesController {
 }
 
 @Controller('admin/v1/images')
+@ApiAdminController('Admin images')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -61,12 +80,14 @@ export class ImagesController {
   constructor(private readonly images: ImagesService) {}
 
   @Get(':id')
+  @ApiOkResponse({ type: ImageResponseDto })
   @RequirePermissions(CatalogPermission.PRODUCT_READ)
   find(@Param('id', ParseUUIDPipe) id: string) {
     return this.images.find(id);
   }
 
   @Patch(':id')
+  @ApiOkResponse({ type: ImageResponseDto })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -77,6 +98,9 @@ export class ImagesController {
   }
 
   @Delete(':id')
+  @ApiServiceUnavailableResponse({
+    description: 'Deletion is unavailable until storage is integrated',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.images.remove(id);

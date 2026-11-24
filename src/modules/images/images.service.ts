@@ -6,8 +6,9 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { and, count, eq, isNull, ne } from 'drizzle-orm';
 import { rethrowCatalogDatabaseError } from '../../common/database/database-error.js';
+import { mapPage, pageOffset } from '../../common/pagination/page.js';
 import type {
   Database,
   DatabaseTransaction,
@@ -18,6 +19,7 @@ import {
   productVariants,
 } from '../../infrastructure/database/schema/catalog.schema.js';
 import type { CreateImageDto, UpdateImageDto } from './dto/image.dto.js';
+import type { ListImagesDto } from './dto/list-images.dto.js';
 import { mapImage } from './image.mapper.js';
 
 @Injectable()
@@ -26,18 +28,38 @@ export class ImagesService {
 
   constructor(@InjectDrizzle() private readonly db: Database) {}
 
-  async list(productId: string) {
-    const [product] = await this.db
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.id, productId));
-    if (!product) throw new NotFoundException('Product not found');
-    const images = await this.db
-      .select()
-      .from(productImages)
-      .where(eq(productImages.productId, productId))
-      .orderBy(productImages.sortOrder, productImages.id);
-    return images.map(mapImage);
+  async list(productId: string, query: ListImagesDto) {
+    const filter = and(
+      eq(productImages.productId, productId),
+      query.variantId === undefined
+        ? undefined
+        : eq(productImages.variantId, query.variantId),
+      query.isPrimary === undefined
+        ? undefined
+        : eq(productImages.isPrimary, query.isPrimary),
+    );
+    return this.db.transaction(
+      async (tx) => {
+        const [product] = await tx
+          .select({ id: products.id })
+          .from(products)
+          .where(eq(products.id, productId));
+        if (!product) throw new NotFoundException('Product not found');
+        const [{ total }] = await tx
+          .select({ total: count() })
+          .from(productImages)
+          .where(filter);
+        const rows = await tx
+          .select()
+          .from(productImages)
+          .where(filter)
+          .orderBy(productImages.sortOrder, productImages.id)
+          .limit(query.limit)
+          .offset(pageOffset(query));
+        return mapPage(rows.map(mapImage), total, query);
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   async find(id: string) {

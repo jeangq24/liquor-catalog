@@ -201,9 +201,9 @@ describe.skipIf(!databaseUrl)('Products HTTP API', () => {
       .set(auth)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.some((product: { id: string }) => product.id === id)).toBe(
-          true,
-        );
+        expect(
+          body.items.some((product: { id: string }) => product.id === id),
+        ).toBe(true);
       });
     await api.get(`/public/v1/products/${slug}`).expect(404);
   });

@@ -1,6 +1,14 @@
 import { MIN_INTERNAL_TOKEN_LENGTH } from '../common/security/catalog-security.constants.js';
 
 export function validateConfiguration(configuration: Record<string, unknown>) {
+  const swaggerEnabled = configuration.SWAGGER_ENABLED;
+  if (
+    swaggerEnabled !== undefined &&
+    swaggerEnabled !== 'true' &&
+    swaggerEnabled !== 'false'
+  ) {
+    throw new Error('SWAGGER_ENABLED must be true or false');
+  }
   const databaseUrl = configuration.DATABASE_URL;
   if (
     typeof databaseUrl !== 'string' ||

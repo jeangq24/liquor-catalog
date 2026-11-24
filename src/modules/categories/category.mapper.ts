@@ -1,4 +1,5 @@
 import { categories } from '../../infrastructure/database/schema/catalog.schema.js';
+import type { CategoryResponseDto } from './dto/category-response.dto.js';
 
 export function mapCategory(category: typeof categories.$inferSelect) {
   return {
@@ -12,7 +13,7 @@ export function mapCategory(category: typeof categories.$inferSelect) {
     sortOrder: category.sortOrder,
     createdAt: category.createdAt,
     updatedAt: category.updatedAt,
-  };
+  } satisfies CategoryResponseDto;
 }
 
 export interface CategoryTreeNode {
