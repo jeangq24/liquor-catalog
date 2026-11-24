@@ -5,6 +5,7 @@ import { AppService } from './app.service.js';
 import { DatabaseModule } from './infrastructure/database/database.module.js';
 import { BrandsModule } from './modules/brands/brands.module.js';
 import { CategoriesModule } from './modules/categories/categories.module.js';
+import { ProductsModule } from './modules/products/products.module.js';
 import { validateConfiguration } from './config/configuration.js';
 
 @Module({
@@ -13,6 +14,7 @@ import { validateConfiguration } from './config/configuration.js';
     DatabaseModule,
     BrandsModule,
     CategoriesModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

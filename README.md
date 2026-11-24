@@ -81,6 +81,26 @@ cannot be deactivated, and hierarchy cycles are rejected. Administrative
 changes are logged with actor and resource identifiers; durable audit storage
 requires the platform audit integration.
 
+## Products
+
+Administrative product operations use `/admin/v1/products`: list, get by ID
+or `/slug/:slug`, create, update, publish and archive. Use the
+`catalog.products.read`, `catalog.products.create`, `catalog.products.update`
+and `catalog.products.deactivate` permissions respectively. Creating or
+updating a product accepts `brandId`, `categoryIds`, and `isFeatured` alongside
+the commercial fields. Omitting `categoryIds` on update leaves associations
+unchanged; an empty array removes them.
+
+Products start in `DRAFT`. Publishing requires an active variant. Archiving
+hides the product from `/public/v1/products`; an archived product can be
+republished if it still has an active variant. Republishing updates
+`publishedAt`. Public product responses include active variants and their
+images; COP prices are decimal strings to preserve BIGINT precision.
+
+Product publication locks the product and an active variant. Future variant
+mutations must lock the product first and reject changes that leave a published
+product without an active variant.
+
 ## Compile and run the project
 
 ```bash
