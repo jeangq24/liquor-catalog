@@ -31,6 +31,221 @@
 $ pnpm install
 ```
 
+## Database
+
+The service uses PostgreSQL and Drizzle ORM. Create a local `.env` from the
+example and set `DATABASE_URL` to the PostgreSQL connection string:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Drizzle Kit reads the schema from
+`src/infrastructure/database/schema/catalog.schema.ts` and writes versioned
+migrations to `drizzle/`. Generate and apply migrations with:
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+```
+
+The local database used by `.env.example` is `licoresyaaa`; create it before
+applying migrations. In Supabase, use the platform connection string and keep
+the `catalog` schema as the service-owned schema.
+
+To run the PostgreSQL schema tests, configure `POSTGRES_TEST_DATABASE_URL` with
+a dedicated test database, apply the migrations to it, and run
+`pnpm test:postgres`. Run `pnpm test:e2e` to test the HTTP API against the same
+dedicated database. These database-dependent tests are skipped if the test
+database URL is not set.
+
+## Brands and categories
+
+The public endpoints `GET /public/v1/brands`, `GET /public/v1/categories`,
+and `GET /public/v1/categories/tree` return active entries. Administrative
+endpoints live under `/admin/v1/brands` and `/admin/v1/categories`. They
+support list, get by ID, create, update, activate and deactivate; categories
+also support `GET /tree` and `GET /slug/:slug`.
+
+Administrative requests require `Authorization: Bearer <CATALOG_INTERNAL_API_TOKEN>`,
+`X-Actor-Id` (a UUID), and `X-Actor-Permissions` (comma-separated permissions).
+The token must contain at least 32 characters. Only a trusted BFF may hold the
+token and set actor headers after validating the Supabase JWT and resolving
+permissions; never expose this contract or token to browsers. If no token is
+configured, administrative requests are denied.
+
+Permissions follow `catalog.brands.*` and `catalog.categories.*`, with `read`,
+`create`, `update`, and `deactivate` actions. Activation requires `update`.
+Active categories require an active parent; a category with active descendants
+cannot be deactivated, and hierarchy cycles are rejected. Administrative
+changes are logged with actor and resource identifiers; durable audit storage
+requires the platform audit integration.
+
+## Administrative queries and OpenAPI
+
+The administrative lists of brands, categories, products, product variants,
+and product images return `{ "items": [...], "page": 1, "limit": 25,
+"total": 0 }`. This replaces the previous unpaginated array response in v1.
+`page` starts at 1 (maximum 1000000); `limit` defaults to 25 and is capped at
+100. Ordering is stable by name and UUID, or by sort order and UUID for
+images; categories use sort order, name and UUID. An out-of-range page returns
+an empty `items` array and the matching total. Invalid or unknown query
+parameters return 400.
+
+Filters:
+
+- Brands: `search` (name or slug), `isActive`.
+- Categories: `search` (name or slug), `isActive`, `parentId`.
+- Products: `search` (name or slug), `status`, `brandId`, `categoryId`,
+  `isFeatured`.
+- Product variants: `search` (name, SKU or barcode), `isActive`.
+- Product images: `variantId`, `isPrimary`.
+
+Search is a case-insensitive literal substring; `%` and `_` are not wildcards.
+Boolean filters accept only `true` or `false`. The category tree remains a
+complete, unpaginated hierarchy.
+
+Set `SWAGGER_ENABLED=true` to serve the administrative OpenAPI UI at `/docs`
+and its specification at `/docs-json`. Documentation is disabled by default;
+if enabled in a deployed environment, restrict access at the network or proxy
+layer. The UI documents the BFF bearer token, actor headers, required
+permissions, query parameters, and request and response schemas; it does not
+authenticate users or replace BFF authorization.
+
+## Public catalog
+
+The storefront can use `GET /public/v1/products`, product detail at
+`/public/v1/products/:slug`, and the active-brand and active-category product
+lists at `/public/v1/brands/:slug/products` and
+`/public/v1/categories/:slug/products`. The latter return 404 for nonexistent
+or inactive brands and categories. Product lists return
+`{items, page, limit, total}`; this replaces the previous unpaginated product
+array in v1. The default page size is 25, capped at 100.
+
+All product lists accept `search` (case-insensitive literal name substring),
+`brandSlug`, `categorySlug`, `isFeatured`, `minPriceCop`, `maxPriceCop`, and
+`sort`. Category matching is direct; subcategories are not included. Brand and
+category filters match active entries only. Product lists and details retain
+the existing visibility rules: published products, active variants, and
+images of the product or its active variants. A product associated with an
+inactive brand can still appear in the general list, but not under that
+brand's filter or route.
+
+Price bounds are inclusive decimal strings from `0` to
+`9223372036854775807`; one active variant must satisfy both bounds. Sorting is
+`name` (default), `price_asc`, `price_desc`, or `newest`. Price sorting uses
+the lowest price among all active variants, even when a price filter matches
+another variant. `newest` orders by publication date. Invalid filters return
+400. Prices in responses remain decimal strings; image paths are references,
+not public URLs, until Storage is integrated. Stock availability belongs to
+Inventory and is not included.
+
+When `SWAGGER_ENABLED=true`, the public documentation is available separately
+at `/public-docs` and `/public-docs-json`.
+
+## Products
+
+Administrative product operations use `/admin/v1/products`: list, get by ID
+or `/slug/:slug`, create, update, publish and archive. Use the
+`catalog.products.read`, `catalog.products.create`, `catalog.products.update`
+and `catalog.products.deactivate` permissions respectively. Creating or
+updating a product accepts `brandId`, `categoryIds`, and `isFeatured` alongside
+the commercial fields. Omitting `categoryIds` on update leaves associations
+unchanged; an empty array removes them.
+
+Products start in `DRAFT`. Publishing requires an active variant. Archiving
+hides the product from `/public/v1/products`; an archived product can be
+republished if it still has an active variant. Republishing updates
+`publishedAt`. Public product responses include active variants and their
+images; COP prices are decimal strings to preserve BIGINT precision.
+
+Product publication and variant mutations lock the product first; deactivating
+the last active variant of a published product is rejected, including when
+requests run concurrently.
+
+## Variants and service integration
+
+`GET` and `POST /admin/v1/products/:productId/variants` list and create
+variants; `GET` and `PATCH /admin/v1/variants/:id` retrieve and update them.
+`PATCH /admin/v1/variants/:id/activate` and `/deactivate` change their state.
+These operations use the corresponding `catalog.products.read`, `create`,
+`update`, and `deactivate` permissions. UUIDs and product ownership never
+change; no physical delete endpoint is provided. SKU and non-null barcode are
+unique. `priceCop` and `compareAtPriceCop` are positive decimal strings bounded
+by PostgreSQL BIGINT; a reference price must exceed the resulting current
+price. Set `compareAtPriceCop`, `barcode`, or `volumeMl` to null to clear it.
+
+Trusted services can call `GET /internal/v1/variants/:id` with
+`Authorization: Bearer <CATALOG_SERVICE_API_TOKEN>`. Configure an independent
+secret of at least 32 characters, different from the BFF token; if absent,
+requests are denied. Never expose it to browsers. The response includes the
+product and variant names, SKU, decimal-string `priceCop`, `productStatus`,
+`isActive`, and `isPurchasable`. Commerce must revalidate this response during
+checkout, reject `isPurchasable: false`, and preserve order price snapshots.
+Inventory may resolve inactive variants by UUID for historical operations.
+Checkout integration in Commerce remains a separate implementation.
+The response reflects Catalog at the time of the request; it does not reserve
+the price or prevent later status changes across services.
+Variant changes are logged, but durable audit storage requires platform
+integration.
+
+For example, the service returns:
+
+```json
+{
+  "id": "a9bd7a99-f700-4b79-bcdd-b2d850e5f87d",
+  "productId": "4ba4e69b-52a0-4790-8d90-bdb636b568c2",
+  "productName": "Whisky",
+  "productStatus": "PUBLISHED",
+  "variantName": "750 ml",
+  "sku": "WHISKY-750",
+  "priceCop": "120000",
+  "isActive": true,
+  "isPurchasable": true
+}
+```
+
+`isPurchasable` is true only for an active variant of a published product.
+Inactive and unpublished entries remain resolvable with `isPurchasable: false`
+so Inventory can retain logical UUID references. The endpoint returns 400 for
+an invalid UUID, 401 for a missing or invalid service token, and 404 for an
+unknown variant. Consumers must treat errors, timeouts, and malformed
+responses as failures, not as permission to purchase. `Cache-Control:
+no-store` prevents caching the response. Commerce must parse price strings
+without losing BIGINT precision and never trust a client-supplied price.
+Catalog defaults to port 3002; a Commerce instance on port 3001 must call the
+Catalog address, not its own. In deployments, use the configured Catalog
+service address rather than assuming localhost.
+
+With `SWAGGER_ENABLED=true`, the internal contract is available at
+`/internal-docs` and `/internal-docs-json`. These routes are disabled by
+default and must be restricted to trusted networks when enabled.
+
+## Product images
+
+`GET` and `POST /admin/v1/products/:productId/images` list and register image
+references. `GET` and `PATCH /admin/v1/images/:id` retrieve or update an image.
+Reads require `catalog.products.read`; registration and updates require
+`catalog.products.update`. An image belongs to a product and optionally one of
+its variants. `sortOrder` controls display order; ties are ordered by UUID.
+Setting `isPrimary` to true atomically replaces the previous primary image in
+the same product or variant scope. Changing the variant of a primary image
+likewise replaces the primary in the destination scope.
+
+`storagePath` is a unique relative object key (up to 1024 ASCII characters,
+using letters, numbers, `.`, `_`, `~`, `-`, and `/` between segments). URLs,
+empty segments, and `.` or `..` segments are rejected. Only the path and
+metadata are stored in PostgreSQL, never image bytes. Paths cannot be replaced
+through this API while storage is unavailable, to avoid abandoning an existing
+file. Administrators may update `variantId`, `altText`, `isPrimary`, and
+`sortOrder`.
+
+Supabase Storage, uploads, public URLs and physical file verification are
+**not yet integrated**. Registering a key does not verify that a file exists
+or is an image. Until the storage integration can remove the file as well,
+`DELETE /admin/v1/images/:id` returns 503 and preserves the reference. Image
+changes are logged with the actor; durable audit storage remains pending.
+
 ## Compile and run the project
 
 ```bash
