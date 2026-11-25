@@ -12,7 +12,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   ApiAdminController,
   ApiPageResponse,
@@ -93,10 +93,12 @@ export class BrandsController {
 }
 
 @Controller('public/v1/brands')
+@ApiTags('Public brands')
 export class PublicBrandsController {
   constructor(private readonly brands: BrandsService) {}
 
   @Get()
+  @ApiOkResponse({ type: BrandResponseDto, isArray: true })
   list() {
     return this.brands.list(true);
   }

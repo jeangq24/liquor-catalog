@@ -12,7 +12,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   ApiAdminController,
   ApiPageResponse,
@@ -110,15 +110,18 @@ export class CategoriesController {
 }
 
 @Controller('public/v1/categories')
+@ApiTags('Public categories')
 export class PublicCategoriesController {
   constructor(private readonly categories: CategoriesService) {}
 
   @Get()
+  @ApiOkResponse({ type: CategoryResponseDto, isArray: true })
   list() {
     return this.categories.list(true);
   }
 
   @Get('tree')
+  @ApiOkResponse({ type: CategoryTreeResponseDto, isArray: true })
   tree() {
     return this.categories.tree(true);
   }

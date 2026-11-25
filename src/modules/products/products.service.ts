@@ -21,18 +21,13 @@ import {
   brands,
   categories,
   productCategories,
-  productImages,
   products,
   productVariants,
 } from '../../infrastructure/database/schema/catalog.schema.js';
 import type { CreateProductDto, UpdateProductDto } from './dto/product.dto.js';
 import type { ListProductsDto } from './dto/list-products.dto.js';
 import { ProductStatus } from './product.constants.js';
-import {
-  mapProduct,
-  mapPublicProduct,
-  type Product,
-} from './product.mapper.js';
+import { mapProduct, type Product } from './product.mapper.js';
 
 @Injectable()
 export class ProductsService {
@@ -106,29 +101,6 @@ export class ProductsService {
       .where(eq(products.slug, slug));
     if (!product) throw new NotFoundException('Product not found');
     return (await this.mapProducts([product], this.db))[0];
-  }
-
-  async listPublic() {
-    const rows = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.status, ProductStatus.PUBLISHED))
-      .orderBy(products.name, products.id);
-    return this.mapPublicProducts(rows);
-  }
-
-  async findPublicBySlug(slug: string) {
-    const [product] = await this.db
-      .select()
-      .from(products)
-      .where(
-        and(
-          eq(products.slug, slug),
-          eq(products.status, ProductStatus.PUBLISHED),
-        ),
-      );
-    if (!product) throw new NotFoundException('Product not found');
-    return (await this.mapPublicProducts([product]))[0];
   }
 
   async create(dto: CreateProductDto, actor: string) {
@@ -309,50 +281,6 @@ export class ProductsService {
         relations
           .filter((item) => item.productId === row.id)
           .map((item) => item.categoryId),
-      ),
-    );
-  }
-
-  private async mapPublicProducts(rows: Product[]) {
-    if (!rows.length) return [];
-    const ids = rows.map((row) => row.id);
-    const relations = await this.db
-      .select({
-        productId: productCategories.productId,
-        categoryId: productCategories.categoryId,
-      })
-      .from(productCategories)
-      .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-      .where(
-        and(
-          inArray(productCategories.productId, ids),
-          eq(categories.isActive, true),
-        ),
-      )
-      .orderBy(productCategories.categoryId);
-    const variants = await this.db
-      .select()
-      .from(productVariants)
-      .where(
-        and(
-          inArray(productVariants.productId, ids),
-          eq(productVariants.isActive, true),
-        ),
-      )
-      .orderBy(productVariants.name, productVariants.id);
-    const images = await this.db
-      .select()
-      .from(productImages)
-      .where(inArray(productImages.productId, ids))
-      .orderBy(productImages.sortOrder, productImages.id);
-    return rows.map((row) =>
-      mapPublicProduct(
-        row,
-        relations
-          .filter((item) => item.productId === row.id)
-          .map((item) => item.categoryId),
-        variants.filter((variant) => variant.productId === row.id),
-        images.filter((image) => image.productId === row.id),
       ),
     );
   }

@@ -8,6 +8,7 @@ import {
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, count, eq, ilike, ne, or } from 'drizzle-orm';
 import { rethrowCatalogDatabaseError } from '../../common/database/database-error.js';
+import { MAX_COP_PRICE } from '../../common/money/price.constants.js';
 import {
   mapPage,
   pageOffset,
@@ -25,8 +26,6 @@ import {
 import { ProductStatus } from '../products/product.constants.js';
 import type { CreateVariantDto, UpdateVariantDto } from './dto/variant.dto.js';
 import { mapVariant } from './variant.mapper.js';
-
-const MAX_PRICE = 9223372036854775807n;
 
 @Injectable()
 export class VariantsService {
@@ -238,9 +237,9 @@ export class VariantsService {
   private validatePrices(price: bigint, comparePrice: bigint | null) {
     if (
       price <= 0n ||
-      price > MAX_PRICE ||
+      price > MAX_COP_PRICE ||
       (comparePrice !== null &&
-        (comparePrice > MAX_PRICE || comparePrice <= price))
+        (comparePrice > MAX_COP_PRICE || comparePrice <= price))
     ) {
       throw new BadRequestException(
         'Prices must fit PostgreSQL BIGINT; reference price must exceed the current price',

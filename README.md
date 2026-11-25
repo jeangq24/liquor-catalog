@@ -103,7 +103,7 @@ Filters:
 
 Search is a case-insensitive literal substring; `%` and `_` are not wildcards.
 Boolean filters accept only `true` or `false`. The category tree remains a
-complete, unpaginated hierarchy. Public endpoints are unchanged.
+complete, unpaginated hierarchy.
 
 Set `SWAGGER_ENABLED=true` to serve the administrative OpenAPI UI at `/docs`
 and its specification at `/docs-json`. Documentation is disabled by default;
@@ -111,6 +111,37 @@ if enabled in a deployed environment, restrict access at the network or proxy
 layer. The UI documents the BFF bearer token, actor headers, required
 permissions, query parameters, and request and response schemas; it does not
 authenticate users or replace BFF authorization.
+
+## Public catalog
+
+The storefront can use `GET /public/v1/products`, product detail at
+`/public/v1/products/:slug`, and the active-brand and active-category product
+lists at `/public/v1/brands/:slug/products` and
+`/public/v1/categories/:slug/products`. The latter return 404 for nonexistent
+or inactive brands and categories. Product lists return
+`{items, page, limit, total}`; this replaces the previous unpaginated product
+array in v1. The default page size is 25, capped at 100.
+
+All product lists accept `search` (case-insensitive literal name substring),
+`brandSlug`, `categorySlug`, `isFeatured`, `minPriceCop`, `maxPriceCop`, and
+`sort`. Category matching is direct; subcategories are not included. Brand and
+category filters match active entries only. Product lists and details retain
+the existing visibility rules: published products, active variants, and
+images of the product or its active variants. A product associated with an
+inactive brand can still appear in the general list, but not under that
+brand's filter or route.
+
+Price bounds are inclusive decimal strings from `0` to
+`9223372036854775807`; one active variant must satisfy both bounds. Sorting is
+`name` (default), `price_asc`, `price_desc`, or `newest`. Price sorting uses
+the lowest price among all active variants, even when a price filter matches
+another variant. `newest` orders by publication date. Invalid filters return
+400. Prices in responses remain decimal strings; image paths are references,
+not public URLs, until Storage is integrated. Stock availability belongs to
+Inventory and is not included.
+
+When `SWAGGER_ENABLED=true`, the public documentation is available separately
+at `/public-docs` and `/public-docs-json`.
 
 ## Products
 

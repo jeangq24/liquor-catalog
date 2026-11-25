@@ -4,6 +4,7 @@ import {
   productVariants,
 } from '../../infrastructure/database/schema/catalog.schema.js';
 import type { ProductResponseDto } from './dto/product-response.dto.js';
+import type { PublicProductResponseDto } from './dto/public-product-response.dto.js';
 
 export type Product = typeof products.$inferSelect;
 export type ProductVariant = typeof productVariants.$inferSelect;
@@ -56,5 +57,5 @@ export function mapPublicProduct(
         isPrimary: image.isPrimary,
         sortOrder: image.sortOrder,
       })),
-  };
+  } satisfies PublicProductResponseDto;
 }

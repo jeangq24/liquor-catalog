@@ -277,9 +277,9 @@ describe.skipIf(!databaseUrl)('Products HTTP API', () => {
       .get('/public/v1/products')
       .expect(200)
       .expect(({ body }) => {
-        expect(body.some((product: { id: string }) => product.id === id)).toBe(
-          false,
-        );
+        expect(
+          body.items.some((product: { id: string }) => product.id === id),
+        ).toBe(false);
       });
     await db.query(
       'UPDATE catalog.product_variants SET is_active = false WHERE id = $1',

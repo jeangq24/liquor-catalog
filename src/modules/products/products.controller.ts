@@ -12,7 +12,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   ApiAdminController,
   ApiPageResponse,
@@ -24,6 +24,9 @@ import { CatalogPermission } from '../../common/security/catalog-permissions.js'
 import { RequirePermissions } from '../../common/security/require-permissions.decorator.js';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto.js';
 import { ListProductsDto } from './dto/list-products.dto.js';
+import { ListPublicProductsDto } from './dto/list-public-products.dto.js';
+import { PublicProductResponseDto } from './dto/public-product-response.dto.js';
+import { PublicProductsService } from './public-products.service.js';
 import { ProductsService } from './products.service.js';
 
 @Controller('admin/v1/products')
@@ -100,16 +103,54 @@ export class ProductsController {
 }
 
 @Controller('public/v1/products')
+@ApiTags('Public products')
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 export class PublicProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(private readonly products: PublicProductsService) {}
 
   @Get()
-  list() {
-    return this.products.listPublic();
+  @ApiPageResponse(PublicProductResponseDto)
+  list(@Query() query: ListPublicProductsDto) {
+    return this.products.list(query);
   }
 
   @Get(':slug')
+  @ApiOkResponse({ type: PublicProductResponseDto })
   find(@Param('slug') slug: string) {
-    return this.products.findPublicBySlug(slug);
+    return this.products.findBySlug(slug);
+  }
+}
+
+@Controller('public/v1')
+@ApiTags('Public products')
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
+export class PublicProductCollectionsController {
+  constructor(private readonly products: PublicProductsService) {}
+
+  @Get('brands/:slug/products')
+  @ApiPageResponse(PublicProductResponseDto)
+  byBrand(@Param('slug') slug: string, @Query() query: ListPublicProductsDto) {
+    return this.products.list(query, { brandSlug: slug });
+  }
+
+  @Get('categories/:slug/products')
+  @ApiPageResponse(PublicProductResponseDto)
+  byCategory(
+    @Param('slug') slug: string,
+    @Query() query: ListPublicProductsDto,
+  ) {
+    return this.products.list(query, { categorySlug: slug });
   }
 }

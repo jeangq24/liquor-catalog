@@ -1,0 +1,1 @@
+export const MAX_COP_PRICE = 9223372036854775807n;

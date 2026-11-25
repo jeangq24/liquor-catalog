@@ -22,3 +22,25 @@ export function createAdminOpenApiDocument(
 export function setupAdminSwagger(app: INestApplication) {
   SwaggerModule.setup('docs', app, () => createAdminOpenApiDocument(app));
 }
+
+export function createPublicOpenApiDocument(
+  app: INestApplication,
+): OpenAPIObject {
+  const config = new DocumentBuilder()
+    .setTitle('LicoresYaaa Public Catalog API')
+    .setDescription('Public commercial catalog for the storefront.')
+    .setVersion('1.0')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  const paths: OpenAPIObject['paths'] = {};
+  for (const [path, value] of Object.entries(document.paths)) {
+    if (path.startsWith('/public/v1/')) paths[path] = value;
+  }
+  return { ...document, paths };
+}
+
+export function setupPublicSwagger(app: INestApplication) {
+  SwaggerModule.setup('public-docs', app, () =>
+    createPublicOpenApiDocument(app),
+  );
+}
