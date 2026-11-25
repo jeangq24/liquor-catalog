@@ -6,6 +6,10 @@ import { Client } from 'pg';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
+import {
+  createInternalOpenApiDocument,
+  setupInternalSwagger,
+} from '../src/common/openapi/catalog-openapi.js';
 
 const databaseUrl = process.env.POSTGRES_TEST_DATABASE_URL;
 const adminToken = 'variants-administration-token-at-least-32-characters';
@@ -77,6 +81,7 @@ describe.skipIf(!databaseUrl)('Variants HTTP API', () => {
       imports: [AppModule],
     }).compile();
     app = module.createNestApplication();
+    setupInternalSwagger(app);
     await app.init();
     db = new Client({ connectionString: databaseUrl });
     await db.connect();
@@ -130,6 +135,10 @@ describe.skipIf(!databaseUrl)('Variants HTTP API', () => {
       .get(`/internal/v1/variants/${randomUUID()}`)
       .set('Authorization', `Bearer ${serviceToken}`)
       .expect(404);
+    await api
+      .get('/internal/v1/variants/not-a-uuid')
+      .set('Authorization', `Bearer ${serviceToken}`)
+      .expect(400);
     await api
       .get(`/admin/v1/products/${randomUUID()}/variants`)
       .set(auth)
@@ -280,20 +289,28 @@ describe.skipIf(!databaseUrl)('Variants HTTP API', () => {
   it('exposes purchase eligibility without hiding historical variants', async () => {
     const api = request(app.getHttpServer());
     const productId = await createProduct();
-    const id = await createVariant(productId);
+    const sku = `internal-${randomUUID()}`;
+    const id = await createVariant(productId, {
+      sku,
+      priceCop: '9007199254740993',
+    });
+
     const internal = () =>
       api
         .get(`/internal/v1/variants/${id}`)
         .set('Authorization', `Bearer ${serviceToken}`);
     const draftResponse = await internal().expect(200);
     expect(draftResponse.headers['cache-control']).toBe('no-store');
-    expect(draftResponse.body).toMatchObject({
+    expect(draftResponse.body).toEqual({
       id,
       productId,
+      productName: 'Variant test product',
+      variantName: '750 ml',
+      sku,
       productStatus: 'DRAFT',
       isActive: true,
       isPurchasable: false,
-      priceCop: '100',
+      priceCop: '9007199254740993',
     });
     await api
       .patch(`/admin/v1/products/${productId}/publish`)
@@ -303,6 +320,14 @@ describe.skipIf(!databaseUrl)('Variants HTTP API', () => {
       productStatus: 'PUBLISHED',
       isPurchasable: true,
     });
+    await api
+      .patch(`/admin/v1/variants/${id}`)
+      .set(auth)
+      .send({ priceCop: '9007199254740994' })
+      .expect(200);
+    expect((await internal().expect(200)).body.priceCop).toBe(
+      '9007199254740994',
+    );
     await api
       .patch(`/admin/v1/variants/${id}/deactivate`)
       .set(auth)
@@ -327,6 +352,49 @@ describe.skipIf(!databaseUrl)('Variants HTTP API', () => {
       isActive: true,
       isPurchasable: false,
     });
+  });
+
+  it('documents the isolated service-to-service contract', async () => {
+    const document = createInternalOpenApiDocument(app);
+    const operation = document.paths['/internal/v1/variants/{id}']?.get;
+    expect(Object.keys(document.paths)).toEqual(['/internal/v1/variants/{id}']);
+    expect(operation?.security).toEqual([{ 'catalog-service': [] }]);
+    expect(operation?.responses).toMatchObject({
+      '200': {
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/InternalVariantResponseDto' },
+          },
+        },
+      },
+      '400': {},
+      '401': {},
+      '404': {},
+    });
+    expect(
+      document.components?.schemas?.InternalVariantResponseDto,
+    ).toMatchObject({
+      required: expect.arrayContaining([
+        'id',
+        'productId',
+        'productName',
+        'productStatus',
+        'variantName',
+        'sku',
+        'priceCop',
+        'isActive',
+        'isPurchasable',
+      ]),
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        priceCop: { type: 'string' },
+        isPurchasable: { type: 'boolean' },
+      },
+    });
+    const response = await request(app.getHttpServer())
+      .get('/internal-docs-json')
+      .expect(200);
+    expect(response.body.paths).toHaveProperty('/internal/v1/variants/{id}');
   });
 
   it('serializes competing deactivations and publication races', async () => {

@@ -44,3 +44,37 @@ export function setupPublicSwagger(app: INestApplication) {
     createPublicOpenApiDocument(app),
   );
 }
+
+export function createInternalOpenApiDocument(
+  app: INestApplication,
+): OpenAPIObject {
+  const config = new DocumentBuilder()
+    .setTitle('LicoresYaaa Catalog Service API')
+    .setDescription('Internal API for trusted service callers.')
+    .setVersion('1.0')
+    .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'catalog-service')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  const paths: OpenAPIObject['paths'] = {};
+  for (const [path, value] of Object.entries(document.paths)) {
+    if (path.startsWith('/internal/v1/')) paths[path] = value;
+  }
+  const variantSchema =
+    document.components?.schemas?.InternalVariantResponseDto;
+  if (!variantSchema)
+    throw new Error('Internal variant response schema is missing');
+  return {
+    ...document,
+    paths,
+    components: {
+      schemas: { InternalVariantResponseDto: variantSchema },
+      securitySchemes: document.components?.securitySchemes,
+    },
+  };
+}
+
+export function setupInternalSwagger(app: INestApplication) {
+  SwaggerModule.setup('internal-docs', app, () =>
+    createInternalOpenApiDocument(app),
+  );
+}

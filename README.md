@@ -189,6 +189,38 @@ the price or prevent later status changes across services.
 Variant changes are logged, but durable audit storage requires platform
 integration.
 
+For example, the service returns:
+
+```json
+{
+  "id": "a9bd7a99-f700-4b79-bcdd-b2d850e5f87d",
+  "productId": "4ba4e69b-52a0-4790-8d90-bdb636b568c2",
+  "productName": "Whisky",
+  "productStatus": "PUBLISHED",
+  "variantName": "750 ml",
+  "sku": "WHISKY-750",
+  "priceCop": "120000",
+  "isActive": true,
+  "isPurchasable": true
+}
+```
+
+`isPurchasable` is true only for an active variant of a published product.
+Inactive and unpublished entries remain resolvable with `isPurchasable: false`
+so Inventory can retain logical UUID references. The endpoint returns 400 for
+an invalid UUID, 401 for a missing or invalid service token, and 404 for an
+unknown variant. Consumers must treat errors, timeouts, and malformed
+responses as failures, not as permission to purchase. `Cache-Control:
+no-store` prevents caching the response. Commerce must parse price strings
+without losing BIGINT precision and never trust a client-supplied price.
+Catalog defaults to port 3002; a Commerce instance on port 3001 must call the
+Catalog address, not its own. In deployments, use the configured Catalog
+service address rather than assuming localhost.
+
+With `SWAGGER_ENABLED=true`, the internal contract is available at
+`/internal-docs` and `/internal-docs-json`. These routes are disabled by
+default and must be restricted to trusted networks when enabled.
+
 ## Product images
 
 `GET` and `POST /admin/v1/products/:productId/images` list and register image

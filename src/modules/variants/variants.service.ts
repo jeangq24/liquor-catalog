@@ -25,6 +25,7 @@ import {
 } from '../../infrastructure/database/schema/catalog.schema.js';
 import { ProductStatus } from '../products/product.constants.js';
 import type { CreateVariantDto, UpdateVariantDto } from './dto/variant.dto.js';
+import { mapInternalVariant } from './internal-variant.mapper.js';
 import { mapVariant } from './variant.mapper.js';
 
 @Injectable()
@@ -96,12 +97,7 @@ export class VariantsService {
       .innerJoin(products, eq(products.id, productVariants.productId))
       .where(eq(productVariants.id, id));
     if (!row) throw new NotFoundException('Variant not found');
-    return {
-      ...row,
-      priceCop: row.priceCop.toString(),
-      isPurchasable:
-        row.isActive && row.productStatus === ProductStatus.PUBLISHED,
-    };
+    return mapInternalVariant(row);
   }
 
   async create(productId: string, dto: CreateVariantDto, actor: string) {

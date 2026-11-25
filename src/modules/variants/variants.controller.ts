@@ -13,12 +13,23 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import {
   ApiAdminController,
   ApiPageResponse,
 } from '../../common/openapi/catalog-openapi.decorators.js';
 import { VariantResponseDto } from './dto/variant-response.dto.js';
+import { InternalVariantResponseDto } from './dto/internal-variant-response.dto.js';
 import { CatalogAuthGuard } from '../../common/security/catalog-auth.guard.js';
 import { ActiveSearchQueryDto } from '../../common/pagination/pagination.dto.js';
 import { CatalogPermissionGuard } from '../../common/security/catalog-permission.guard.js';
@@ -116,12 +127,24 @@ export class VariantsController {
 }
 
 @Controller('internal/v1/variants')
+@ApiTags('Internal variants')
+@ApiBearerAuth('catalog-service')
 @UseGuards(CatalogServiceGuard)
 export class InternalVariantsController {
   constructor(private readonly variants: VariantsService) {}
 
   @Get(':id')
   @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary: 'Resolve a variant and its current commercial price',
+    description:
+      'Commerce must reject non-purchasable variants. Inventory can resolve inactive variants for historical references.',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: InternalVariantResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid variant UUID' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid service token' })
+  @ApiNotFoundResponse({ description: 'Variant not found' })
   find(@Param('id', ParseUUIDPipe) id: string) {
     return this.variants.findInternal(id);
   }

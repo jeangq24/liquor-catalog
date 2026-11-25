@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module.js';
 import {
   setupAdminSwagger,
+  setupInternalSwagger,
   setupPublicSwagger,
 } from './common/openapi/catalog-openapi.js';
 import figlet from 'figlet';
@@ -11,6 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   if (app.get(ConfigService).get<string>('SWAGGER_ENABLED') === 'true') {
     setupAdminSwagger(app);
+    setupInternalSwagger(app);
     setupPublicSwagger(app);
   }
   await app.listen(process.env.PORT ?? 3002);
