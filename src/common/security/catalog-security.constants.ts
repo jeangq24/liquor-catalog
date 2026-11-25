@@ -1,0 +1,1 @@
+export const MIN_INTERNAL_TOKEN_LENGTH = 32;
