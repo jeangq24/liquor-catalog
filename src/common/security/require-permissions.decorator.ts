@@ -7,6 +7,6 @@ export const RequirePermissions = (...permissions: string[]) =>
   applyDecorators(
     SetMetadata(REQUIRED_PERMISSIONS, permissions),
     ApiOperation({
-      description: `Required permissions: ${permissions.join(', ')}.`,
+      description: `Permisos requeridos: ${permissions.join(', ')}.`,
     }),
   );

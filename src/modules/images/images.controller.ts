@@ -15,6 +15,10 @@ import {
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiParam,
   ApiOkResponse,
   ApiServiceUnavailableResponse,
 } from '@nestjs/swagger';
@@ -32,7 +36,7 @@ import { ListImagesDto } from './dto/list-images.dto.js';
 import { ImagesService } from './images.service.js';
 
 @Controller('admin/v1/products/:productId/images')
-@ApiAdminController('Admin images')
+@ApiAdminController('Administración de imágenes')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -45,6 +49,16 @@ export class ProductImagesController {
   constructor(private readonly images: ImagesService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar imágenes asociadas a un producto' })
+  @ApiParam({
+    name: 'productId',
+    format: 'uuid',
+    description: 'UUID estable del producto.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID o los filtros de consulta no son válidos.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró el producto.' })
   @ApiPageResponse(ImageResponseDto)
   @RequirePermissions(CatalogPermission.PRODUCT_READ)
   list(
@@ -55,7 +69,22 @@ export class ProductImagesController {
   }
 
   @Post()
-  @ApiCreatedResponse({ type: ImageResponseDto })
+  @ApiOperation({ summary: 'Registrar una imagen para un producto' })
+  @ApiParam({
+    name: 'productId',
+    format: 'uuid',
+    description: 'UUID estable del producto asociado.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Los datos enviados no cumplen las validaciones.',
+  })
+  @ApiNotFoundResponse({
+    description: 'No se encontró el producto o la variante asociada.',
+  })
+  @ApiCreatedResponse({
+    type: ImageResponseDto,
+    description: 'Referencia de imagen registrada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   create(
     @Param('productId', ParseUUIDPipe) productId: string,
@@ -67,7 +96,7 @@ export class ProductImagesController {
 }
 
 @Controller('admin/v1/images')
-@ApiAdminController('Admin images')
+@ApiAdminController('Administración de imágenes')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -80,14 +109,42 @@ export class ImagesController {
   constructor(private readonly images: ImagesService) {}
 
   @Get(':id')
-  @ApiOkResponse({ type: ImageResponseDto })
+  @ApiOperation({ summary: 'Consultar una imagen por UUID' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la referencia de imagen.',
+  })
+  @ApiBadRequestResponse({ description: 'El UUID de la imagen no es válido.' })
+  @ApiNotFoundResponse({
+    description: 'No se encontró la referencia de imagen.',
+  })
+  @ApiOkResponse({
+    type: ImageResponseDto,
+    description: 'Referencia de imagen consultada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_READ)
   find(@Param('id', ParseUUIDPipe) id: string) {
     return this.images.find(id);
   }
 
   @Patch(':id')
-  @ApiOkResponse({ type: ImageResponseDto })
+  @ApiOperation({ summary: 'Actualizar los metadatos de una imagen' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la referencia de imagen.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID o los datos enviados no son válidos.',
+  })
+  @ApiNotFoundResponse({
+    description: 'No se encontró la imagen o la variante asociada.',
+  })
+  @ApiOkResponse({
+    type: ImageResponseDto,
+    description: 'Referencia de imagen actualizada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -98,8 +155,19 @@ export class ImagesController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar una referencia de imagen' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la referencia de imagen.',
+  })
+  @ApiBadRequestResponse({ description: 'El UUID de la imagen no es válido.' })
+  @ApiNotFoundResponse({
+    description: 'No se encontró la referencia de imagen.',
+  })
   @ApiServiceUnavailableResponse({
-    description: 'Deletion is unavailable until storage is integrated',
+    description:
+      'La eliminación no está disponible hasta integrar el almacenamiento. El registro no se modifica.',
   })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   remove(@Param('id', ParseUUIDPipe) id: string) {

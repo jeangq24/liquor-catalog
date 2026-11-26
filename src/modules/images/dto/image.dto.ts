@@ -21,20 +21,33 @@ export class CreateImageDto {
   @ApiProperty({
     maxLength: MAX_STORAGE_PATH_LENGTH,
     pattern: STORAGE_PATH_PATTERN.source,
+    description:
+      'Ruta relativa registrada para la imagen; no se carga el archivo.',
   })
   @IsString()
   @MaxLength(MAX_STORAGE_PATH_LENGTH)
   @Matches(STORAGE_PATH_PATTERN)
   readonly storagePath!: string;
 
-  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
+  @ApiPropertyOptional({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description:
+      'UUID de la variante asociada; null mantiene la imagen a nivel de producto.',
+  })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
   )
   @IsUUID()
   readonly variantId?: string | null;
 
-  @ApiPropertyOptional({ type: String, maxLength: 200, nullable: true })
+  @ApiPropertyOptional({
+    type: String,
+    maxLength: 200,
+    nullable: true,
+    description: 'Texto alternativo; admite null.',
+  })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
   )
@@ -42,7 +55,11 @@ export class CreateImageDto {
   @MaxLength(200)
   readonly altText?: string | null;
 
-  @ApiPropertyOptional({ type: Boolean, default: false })
+  @ApiPropertyOptional({
+    type: Boolean,
+    default: false,
+    description: 'Indica si la imagen es principal dentro de su ámbito.',
+  })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsBoolean()
   readonly isPrimary?: boolean;
@@ -52,6 +69,7 @@ export class CreateImageDto {
     minimum: MIN_SORT_ORDER,
     maximum: MAX_SORT_ORDER,
     default: 0,
+    description: 'Posición de ordenamiento dentro del producto o variante.',
   })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
@@ -61,14 +79,25 @@ export class CreateImageDto {
 }
 
 export class UpdateImageDto {
-  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
+  @ApiPropertyOptional({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description:
+      'Nuevo UUID de variante asociada; null asigna la imagen al producto.',
+  })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
   )
   @IsUUID()
   readonly variantId?: string | null;
 
-  @ApiPropertyOptional({ type: String, maxLength: 200, nullable: true })
+  @ApiPropertyOptional({
+    type: String,
+    maxLength: 200,
+    nullable: true,
+    description: 'Nuevo texto alternativo; admite null.',
+  })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
   )
@@ -76,7 +105,10 @@ export class UpdateImageDto {
   @MaxLength(200)
   readonly altText?: string | null;
 
-  @ApiPropertyOptional({ type: Boolean })
+  @ApiPropertyOptional({
+    type: Boolean,
+    description: 'Indica si la imagen debe ser principal en su ámbito.',
+  })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsBoolean()
   readonly isPrimary?: boolean;
@@ -85,6 +117,7 @@ export class UpdateImageDto {
     type: 'integer',
     minimum: MIN_SORT_ORDER,
     maximum: MAX_SORT_ORDER,
+    description: 'Nueva posición de ordenamiento.',
   })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
