@@ -23,6 +23,7 @@ export class PaginationQueryDto {
     minimum: 1,
     maximum: MAX_PAGE,
     default: DEFAULT_PAGE,
+    description: 'Número de página solicitado, comenzando en 1.',
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' && /^[1-9][0-9]*$/.test(value)
@@ -39,6 +40,7 @@ export class PaginationQueryDto {
     minimum: 1,
     maximum: MAX_PAGE_SIZE,
     default: DEFAULT_PAGE_SIZE,
+    description: `Cantidad de elementos por página; máximo ${MAX_PAGE_SIZE}.`,
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' && /^[1-9][0-9]*$/.test(value)
@@ -55,7 +57,8 @@ export class SearchQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     type: String,
     maxLength: 200,
-    description: 'Case-insensitive literal substring search.',
+    description:
+      'Búsqueda literal, sin distinguir mayúsculas y minúsculas, por subcadena.',
   })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
@@ -65,7 +68,10 @@ export class SearchQueryDto extends PaginationQueryDto {
 }
 
 export class ActiveSearchQueryDto extends SearchQueryDto {
-  @ApiPropertyOptional({ type: Boolean })
+  @ApiPropertyOptional({
+    type: Boolean,
+    description: 'Filtra por estado activo o inactivo.',
+  })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @Transform(({ value }: { value: unknown }) =>
     value === 'true' ? true : value === 'false' ? false : value,
