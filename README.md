@@ -1,347 +1,256 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# LicoresYaaa Catalog
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Microservicio de catálogo comercial para administrar marcas, categorías,
+productos, variantes e imágenes, y ofrecer consultas al escaparate digital.
+Catalog es propietario de los datos comerciales de su dominio y
+los persiste en PostgreSQL.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Propósito y alcance
 
-## Description
+Catalog mantiene las marcas y categorías, los datos de productos, sus estados
+de publicación, las presentaciones comerciales y sus precios, así como las
+referencias y metadatos de imágenes. Expone rutas administrativas,
+públicos e internos para consultar esos datos.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Catalog **no** administra existencias, reservas, pagos ni pedidos. Tampoco
+almacena archivos de imagen: PostgreSQL conserva únicamente sus rutas. La
+integración con un proveedor de almacenamiento, la carga y verificación física
+de imágenes siguen pendientes. Por esa razón, eliminar una referencia responde
+503 y conserva el registro.
 
-## Project setup
+## Tecnologías y arquitectura
 
-```bash
-$ pnpm install
-```
+- Node.js y TypeScript con NestJS 12, en modo ESM.
+- PostgreSQL y Drizzle ORM / Drizzle Kit para persistencia y migraciones.
+- `class-validator` y `class-transformer` para validar solicitudes.
+- Swagger / OpenAPI para documentar las APIs.
+- Vitest para pruebas unitarias, de persistencia y HTTP.
+- pnpm para administrar dependencias y ejecutar comandos.
 
-## Database
+La aplicación inicia en `src/main.ts` y registra los módulos de marcas,
+categorías, productos, variantes e imágenes desde `src/app.module.ts`. Cada
+módulo separa controladores, servicios, DTOs y mapeadores. El esquema propiedad
+de Catalog está en `src/infrastructure/database/schema/catalog.schema.ts`;
+las migraciones están en `drizzle/`.
 
-The service uses PostgreSQL and Drizzle ORM. Create a local `.env` from the
-example and set `DATABASE_URL` to the PostgreSQL connection string:
+Los precios COP se almacenan como enteros `BIGINT` y las respuestas los
+representan como cadenas decimales para preservar su precisión.
+
+## Requisitos previos
+
+- Node.js compatible con las versiones declaradas en las dependencias del
+  proyecto.
+- pnpm.
+- PostgreSQL accesible mediante una URL de conexión.
+
+El repositorio no fija una versión exacta de Node.js ni de pnpm; utiliza
+versiones compatibles con las dependencias y el archivo `pnpm-lock.yaml`.
+
+## Instalación y configuración local
+
+Instala las dependencias:
 
 ```powershell
-Copy-Item .env.example .env
+pnpm install
 ```
 
-Drizzle Kit reads the schema from
-`src/infrastructure/database/schema/catalog.schema.ts` and writes versioned
-migrations to `drizzle/`. Generate and apply migrations with:
+Crea `.env` a partir de `.env.example` y configura `DATABASE_URL` para una
+base PostgreSQL local. No incluyas secretos en el repositorio. La
+configuración de ejemplo apunta a `licoresyaaa`; crea esa base o cambia la URL
+para apuntar a una base existente.
 
-```bash
+| Variable                     |              Requerida | Propósito                                                                                                                  |
+| ---------------------------- | ---------------------: | -------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`               |                     Sí | URL PostgreSQL usada por la aplicación y Drizzle Kit.                                                                      |
+| `PORT`                       |                     No | Puerto HTTP; por defecto, `3002`.                                                                                          |
+| `CATALOG_INTERNAL_API_TOKEN` |    Para administración | Token Bearer del BFF confiable. Debe tener al menos 32 caracteres.                                                         |
+| `CATALOG_SERVICE_API_TOKEN`  | Para llamadas internas | Token Bearer exclusivo de servicios confiables. Debe tener al menos 32 caracteres y ser distinto del token administrativo. |
+| `SWAGGER_ENABLED`            |                     No | Habilita las interfaces y especificaciones Swagger solo cuando vale `true`; por defecto no se exponen.                     |
+| `POSTGRES_TEST_DATABASE_URL` |                     No | Base PostgreSQL dedicada a pruebas de integración. No uses una base con datos de usuario.                                  |
+
+Si no está configurado el token administrativo, las operaciones
+administrativas se deniegan. La autenticación administrativa requiere además
+los encabezados `X-Actor-Id` y `X-Actor-Permissions`, que debe establecer un
+BFF confiable después de autenticar al usuario y resolver sus permisos. Nunca
+expongas estos tokens ni el contrato administrativo al navegador.
+
+Las operaciones internas requieren `CATALOG_SERVICE_API_TOKEN`; no aceptan
+como sustituto el token del BFF.
+
+## Base de datos y migraciones
+
+Drizzle Kit utiliza `drizzle.config.ts`, el esquema
+`src/infrastructure/database/schema/catalog.schema.ts` y el directorio
+`drizzle/`. Para generar una migración tras un cambio intencional de esquema y
+aplicarla:
+
+```powershell
 pnpm db:generate
 pnpm db:migrate
 ```
 
-The local database used by `.env.example` is `licoresyaaa`; create it before
-applying migrations. In Supabase, use the platform connection string and keep
-the `catalog` schema as the service-owned schema.
+`pnpm db:migrate` aplica las migraciones pendientes en la base indicada por
+`DATABASE_URL`. Verifica esa variable antes de ejecutarlo, especialmente si
+usas una base compartida.
 
-To run the PostgreSQL schema tests, configure `POSTGRES_TEST_DATABASE_URL` with
-a dedicated test database, apply the migrations to it, and run
-`pnpm test:postgres`. Run `pnpm test:e2e` to test the HTTP API against the same
-dedicated database. These database-dependent tests are skipped if the test
-database URL is not set.
+## Ejecución y comprobaciones
 
-## Brands and categories
-
-The public endpoints `GET /public/v1/brands`, `GET /public/v1/categories`,
-and `GET /public/v1/categories/tree` return active entries. Administrative
-endpoints live under `/admin/v1/brands` and `/admin/v1/categories`. They
-support list, get by ID, create, update, activate and deactivate; categories
-also support `GET /tree` and `GET /slug/:slug`.
-
-Administrative requests require `Authorization: Bearer <CATALOG_INTERNAL_API_TOKEN>`,
-`X-Actor-Id` (a UUID), and `X-Actor-Permissions` (comma-separated permissions).
-The token must contain at least 32 characters. Only a trusted BFF may hold the
-token and set actor headers after validating the Supabase JWT and resolving
-permissions; never expose this contract or token to browsers. If no token is
-configured, administrative requests are denied.
-
-Permissions follow `catalog.brands.*` and `catalog.categories.*`, with `read`,
-`create`, `update`, and `deactivate` actions. Activation requires `update`.
-Active categories require an active parent; a category with active descendants
-cannot be deactivated, and hierarchy cycles are rejected. Administrative
-changes are logged with actor and resource identifiers; durable audit storage
-requires the platform audit integration.
-
-## Administrative queries and OpenAPI
-
-The administrative lists of brands, categories, products, product variants,
-and product images return `{ "items": [...], "page": 1, "limit": 25,
-"total": 0 }`. This replaces the previous unpaginated array response in v1.
-`page` starts at 1 (maximum 1000000); `limit` defaults to 25 and is capped at
-100. Ordering is stable by name and UUID, or by sort order and UUID for
-images; categories use sort order, name and UUID. An out-of-range page returns
-an empty `items` array and the matching total. Invalid or unknown query
-parameters return 400.
-
-Filters:
-
-- Brands: `search` (name or slug), `isActive`.
-- Categories: `search` (name or slug), `isActive`, `parentId`.
-- Products: `search` (name or slug), `status`, `brandId`, `categoryId`,
-  `isFeatured`.
-- Product variants: `search` (name, SKU or barcode), `isActive`.
-- Product images: `variantId`, `isPrimary`.
-
-Search is a case-insensitive literal substring; `%` and `_` are not wildcards.
-Boolean filters accept only `true` or `false`. The category tree remains a
-complete, unpaginated hierarchy.
-
-Set `SWAGGER_ENABLED=true` to serve the administrative OpenAPI UI at `/docs`
-and its specification at `/docs-json`. Documentation is disabled by default;
-if enabled in a deployed environment, restrict access at the network or proxy
-layer. The UI documents the BFF bearer token, actor headers, required
-permissions, query parameters, and request and response schemas; it does not
-authenticate users or replace BFF authorization.
-
-## Public catalog
-
-The storefront can use `GET /public/v1/products`, product detail at
-`/public/v1/products/:slug`, and the active-brand and active-category product
-lists at `/public/v1/brands/:slug/products` and
-`/public/v1/categories/:slug/products`. The latter return 404 for nonexistent
-or inactive brands and categories. Product lists return
-`{items, page, limit, total}`; this replaces the previous unpaginated product
-array in v1. The default page size is 25, capped at 100.
-
-All product lists accept `search` (case-insensitive literal name substring),
-`brandSlug`, `categorySlug`, `isFeatured`, `minPriceCop`, `maxPriceCop`, and
-`sort`. Category matching is direct; subcategories are not included. Brand and
-category filters match active entries only. Product lists and details retain
-the existing visibility rules: published products, active variants, and
-images of the product or its active variants. A product associated with an
-inactive brand can still appear in the general list, but not under that
-brand's filter or route.
-
-Price bounds are inclusive decimal strings from `0` to
-`9223372036854775807`; one active variant must satisfy both bounds. Sorting is
-`name` (default), `price_asc`, `price_desc`, or `newest`. Price sorting uses
-the lowest price among all active variants, even when a price filter matches
-another variant. `newest` orders by publication date. Invalid filters return
-400. Prices in responses remain decimal strings; image paths are references,
-not public URLs, until Storage is integrated. Stock availability belongs to
-Inventory and is not included.
-
-When `SWAGGER_ENABLED=true`, the public documentation is available separately
-at `/public-docs` and `/public-docs-json`.
-
-## Products
-
-Administrative product operations use `/admin/v1/products`: list, get by ID
-or `/slug/:slug`, create, update, publish and archive. Use the
-`catalog.products.read`, `catalog.products.create`, `catalog.products.update`
-and `catalog.products.deactivate` permissions respectively. Creating or
-updating a product accepts `brandId`, `categoryIds`, and `isFeatured` alongside
-the commercial fields. Omitting `categoryIds` on update leaves associations
-unchanged; an empty array removes them.
-
-Products start in `DRAFT`. Publishing requires an active variant. Archiving
-hides the product from `/public/v1/products`; an archived product can be
-republished if it still has an active variant. Republishing updates
-`publishedAt`. Public product responses include active variants and their
-images; COP prices are decimal strings to preserve BIGINT precision.
-
-Product publication and variant mutations lock the product first; deactivating
-the last active variant of a published product is rejected, including when
-requests run concurrently.
-
-## Variants and service integration
-
-`GET` and `POST /admin/v1/products/:productId/variants` list and create
-variants; `GET` and `PATCH /admin/v1/variants/:id` retrieve and update them.
-`PATCH /admin/v1/variants/:id/activate` and `/deactivate` change their state.
-These operations use the corresponding `catalog.products.read`, `create`,
-`update`, and `deactivate` permissions. UUIDs and product ownership never
-change; no physical delete endpoint is provided. SKU and non-null barcode are
-unique. `priceCop` and `compareAtPriceCop` are positive decimal strings bounded
-by PostgreSQL BIGINT; a reference price must exceed the resulting current
-price. Set `compareAtPriceCop`, `barcode`, or `volumeMl` to null to clear it.
-
-Trusted services can call `GET /internal/v1/variants/:id` with
-`Authorization: Bearer <CATALOG_SERVICE_API_TOKEN>`. Configure an independent
-secret of at least 32 characters, different from the BFF token; if absent,
-requests are denied. Never expose it to browsers. The response includes the
-product and variant names, SKU, decimal-string `priceCop`, `productStatus`,
-`isActive`, and `isPurchasable`. Commerce must revalidate this response during
-checkout, reject `isPurchasable: false`, and preserve order price snapshots.
-Inventory may resolve inactive variants by UUID for historical operations.
-Checkout integration in Commerce remains a separate implementation.
-The response reflects Catalog at the time of the request; it does not reserve
-the price or prevent later status changes across services.
-Variant changes are logged, but durable audit storage requires platform
-integration.
-
-For example, the service returns:
-
-```json
-{
-  "id": "a9bd7a99-f700-4b79-bcdd-b2d850e5f87d",
-  "productId": "4ba4e69b-52a0-4790-8d90-bdb636b568c2",
-  "productName": "Whisky",
-  "productStatus": "PUBLISHED",
-  "variantName": "750 ml",
-  "sku": "WHISKY-750",
-  "priceCop": "120000",
-  "isActive": true,
-  "isPurchasable": true
-}
+```powershell
+pnpm start:dev
+pnpm start:debug
+pnpm build
+pnpm start:prod
+pnpm lint
+pnpm test
+pnpm test:postgres
+pnpm test:e2e
+pnpm test:cov
+pnpm format
 ```
 
-`isPurchasable` is true only for an active variant of a published product.
-Inactive and unpublished entries remain resolvable with `isPurchasable: false`
-so Inventory can retain logical UUID references. The endpoint returns 400 for
-an invalid UUID, 401 for a missing or invalid service token, and 404 for an
-unknown variant. Consumers must treat errors, timeouts, and malformed
-responses as failures, not as permission to purchase. `Cache-Control:
-no-store` prevents caching the response. Commerce must parse price strings
-without losing BIGINT precision and never trust a client-supplied price.
-Catalog defaults to port 3002; a Commerce instance on port 3001 must call the
-Catalog address, not its own. In deployments, use the configured Catalog
-service address rather than assuming localhost.
+`pnpm start` inicia NestJS; `pnpm start:dev` lo inicia en modo de desarrollo.
+`pnpm start:debug` inicia el modo de desarrollo con depuración.
+`pnpm start:prod` ejecuta la compilación en `dist/` y requiere haber corrido
+antes `pnpm build`. `pnpm test:watch` ejecuta Vitest en modo interactivo y
+`pnpm test:debug` inicia el modo de depuración de Vitest. `pnpm format`
+aplica Prettier a los archivos TypeScript de `src/` y `test/`.
 
-With `SWAGGER_ENABLED=true`, the internal contract is available at
-`/internal-docs` and `/internal-docs-json`. These routes are disabled by
-default and must be restricted to trusted networks when enabled.
+Las pruebas PostgreSQL requieren una base dedicada en
+`POSTGRES_TEST_DATABASE_URL`. Antes de ejecutarlas, configura también
+`DATABASE_URL` temporalmente para apuntar a esa base y aplica allí las
+migraciones con `pnpm db:migrate`; los runners leen
+`POSTGRES_TEST_DATABASE_URL` y las pruebas e2e también usan esa URL al
+inicializar la aplicación. Las pruebas PostgreSQL y e2e se omiten cuando no se
+configura la URL de pruebas.
 
-## Product images
+## APIs
 
-`GET` and `POST /admin/v1/products/:productId/images` list and register image
-references. `GET` and `PATCH /admin/v1/images/:id` retrieve or update an image.
-Reads require `catalog.products.read`; registration and updates require
-`catalog.products.update`. An image belongs to a product and optionally one of
-its variants. `sortOrder` controls display order; ties are ordered by UUID.
-Setting `isPrimary` to true atomically replaces the previous primary image in
-the same product or variant scope. Changing the variant of a primary image
-likewise replaces the primary in the destination scope.
+Los nombres de rutas y propiedades que siguen son identificadores técnicos
+y se mantienen literalmente.
 
-`storagePath` is a unique relative object key (up to 1024 ASCII characters,
-using letters, numbers, `.`, `_`, `~`, `-`, and `/` between segments). URLs,
-empty segments, and `.` or `..` segments are rejected. Only the path and
-metadata are stored in PostgreSQL, never image bytes. Paths cannot be replaced
-through this API while storage is unavailable, to avoid abandoning an existing
-file. Administrators may update `variantId`, `altText`, `isPrimary`, and
-`sortOrder`.
+### API pública
 
-Supabase Storage, uploads, public URLs and physical file verification are
-**not yet integrated**. Registering a key does not verify that a file exists
-or is an image. Until the storage integration can remove the file as well,
-`DELETE /admin/v1/images/:id` returns 503 and preserves the reference. Image
-changes are logged with the actor; durable audit storage remains pending.
+No requiere autenticación:
 
-## Compile and run the project
+| Método y ruta                              | Descripción                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------- |
+| `GET /public/v1/products`                  | Lista productos publicados con paginación.                                |
+| `GET /public/v1/products/:slug`            | Consulta el detalle de un producto publicado.                             |
+| `GET /public/v1/brands`                    | Lista marcas activas.                                                     |
+| `GET /public/v1/brands/:slug/products`     | Lista productos publicados de una marca activa.                           |
+| `GET /public/v1/categories`                | Lista categorías activas.                                                 |
+| `GET /public/v1/categories/tree`           | Consulta el árbol de categorías activas.                                  |
+| `GET /public/v1/categories/:slug/products` | Lista productos publicados asociados directamente a una categoría activa. |
 
-```bash
-# development
-$ pnpm run start
+Las listas de productos devuelven `{items, page, limit, total}`. `page`
+comienza en 1; `limit` vale 25 por defecto y tiene máximo de 100. Los filtros
+disponibles son `search`, `brandSlug`, `categorySlug`, `isFeatured`,
+`minPriceCop`, `maxPriceCop` y `sort`. La búsqueda es una subcadena literal,
+sin comodines. Las categorías no incluyen descendientes. El rango de precio es
+inclusivo y una misma variante activa debe cumplir ambos límites. Los valores
+posibles de `sort` son `name` (predeterminado), `price_asc`, `price_desc` y
+`newest`; los ordenamientos por precio usan el precio mínimo de las variantes
+activas.
 
-# watch mode
-$ pnpm run start:dev
+El detalle público incluye las variantes activas, sus precios e imágenes del
+producto y de sus variantes activas. Los productos no publicados y las marcas
+o categorías inactivas no se ofrecen en sus respectivas consultas públicas.
+Las rutas de imagen son referencias, no URLs públicas.
 
-# production mode
-$ pnpm run start:prod
-```
+### API administrativa
 
-## Run tests
+Las rutas administrativas requieren el token del BFF, `X-Actor-Id`,
+`X-Actor-Permissions` y el permiso específico de cada operación.
 
-```bash
-# unit tests
-$ pnpm run test
+| Recurso    | Rutas                                                                                                                                                                                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Marcas     | `GET /admin/v1/brands`, `GET /admin/v1/brands/:id`, `POST /admin/v1/brands`, `PATCH /admin/v1/brands/:id`, `PATCH /admin/v1/brands/:id/activate`, `PATCH /admin/v1/brands/:id/deactivate`                                                                                                 |
+| Categorías | `GET /admin/v1/categories`, `GET /admin/v1/categories/tree`, `GET /admin/v1/categories/slug/:slug`, `GET /admin/v1/categories/:id`, `POST /admin/v1/categories`, `PATCH /admin/v1/categories/:id`, `PATCH /admin/v1/categories/:id/activate`, `PATCH /admin/v1/categories/:id/deactivate` |
+| Productos  | `GET /admin/v1/products`, `GET /admin/v1/products/slug/:slug`, `GET /admin/v1/products/:id`, `POST /admin/v1/products`, `PATCH /admin/v1/products/:id`, `PATCH /admin/v1/products/:id/publish`, `PATCH /admin/v1/products/:id/archive`                                                    |
+| Variantes  | `GET /admin/v1/products/:productId/variants`, `POST /admin/v1/products/:productId/variants`, `GET /admin/v1/variants/:id`, `PATCH /admin/v1/variants/:id`, `PATCH /admin/v1/variants/:id/activate`, `PATCH /admin/v1/variants/:id/deactivate`                                             |
+| Imágenes   | `GET /admin/v1/products/:productId/images`, `POST /admin/v1/products/:productId/images`, `GET /admin/v1/images/:id`, `PATCH /admin/v1/images/:id`, `DELETE /admin/v1/images/:id`                                                                                                          |
 
-# e2e tests
-$ pnpm run test:e2e
+Las listas administrativas de marcas, categorías, productos, variantes e
+imágenes aceptan `page` y `limit` y devuelven `{items, page, limit, total}`.
+También admiten estos filtros:
 
-# test coverage
-$ pnpm run test:cov
-```
+- Marcas: `search`, `isActive`.
+- Categorías: `search`, `isActive`, `parentId`.
+- Productos: `search`, `status`, `brandId`, `categoryId`, `isFeatured`.
+- Variantes: `search`, `isActive`.
+- Imágenes: `variantId`, `isPrimary`.
 
-## Deployment
+La búsqueda administrativa considera los campos indicados por el recurso;
+`%` y `_` se tratan como caracteres literales. Los parámetros no reconocidos
+o inválidos responden 400. La lista plana de categorías se pagina; el árbol
+completo no se pagina.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Los permisos siguen los nombres `catalog.brands.*`,
+`catalog.categories.*` y `catalog.products.*`, con acciones `read`, `create`,
+`update` y `deactivate` según la operación. La activación requiere `update`.
+Los cambios administrativos se registran en los registros de la aplicación; una
+integración de auditoría durable sigue pendiente.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### API interna entre servicios
 
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
+`GET /internal/v1/variants/:id` requiere
+`Authorization: Bearer <CATALOG_SERVICE_API_TOKEN>`. Devuelve identificadores
+UUID estables, estado del producto y variante, nombres, SKU, precio COP como
+cadena decimal e `isPurchasable`. Este último solo vale `true` si la variante
+está activa y su producto publicado. Las variantes inactivas pueden
+consultarse para conservar referencias históricas. La respuesta incluye
+`Cache-Control: no-store`; no reserva el precio ni impide cambios posteriores.
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Commerce debe validar `isPurchasable` al confirmar la compra y conservar
+capturas históricas de los precios de los pedidos, sin confiar en importes
+enviados por clientes.
+Inventory utiliza los UUID lógicos de las variantes; su estado de inventario
+no pertenece a Catalog. Los servicios consumidores no deben conectarse
+directamente a la base de datos de Catalog.
 
-## Observability
+### Swagger / OpenAPI
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+Con `SWAGGER_ENABLED=true`, se exponen las interfaces y especificaciones
+separadas:
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+| API            | Interfaz         | Especificación JSON   |
+| -------------- | ---------------- | --------------------- |
+| Administrativa | `/docs`          | `/docs-json`          |
+| Pública        | `/public-docs`   | `/public-docs-json`   |
+| Interna        | `/internal-docs` | `/internal-docs-json` |
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+Swagger documenta los contratos, pero no sustituye la autenticación ni la
+autorización. La documentación está desactivada por defecto. Si se habilita
+en un entorno desplegado, limita su acceso mediante la red o un proxy.
 
-To add it to this project, run this and approve the code it prints at [observe.nestjs.com/link](https://observe.nestjs.com/link) - signing up for free if you have no account:
+## Integraciones y límites
 
-```bash
-$ npx @nestjs/observe link
-```
+- PostgreSQL es la base de datos de Catalog; la aplicación y Drizzle Kit usan
+  `DATABASE_URL`.
+- El BFF confiable mantiene el token administrativo, autentica a sus usuarios
+  y proporciona actor y permisos.
+- Commerce consulta la API interna de variantes para validar la información
+  comercial; implementar el consumidor y habilitar la confirmación de compra
+  en Commerce
+  corresponde a ese servicio.
+- Inventory conserva referencias lógicas por UUID y administra existencias
+  fuera de Catalog.
+- No hay un proveedor de almacenamiento conectado. Las imágenes no se cargan,
+  verifican ni eliminan físicamente desde esta versión.
 
-It installs `@nestjs/observe`, wires it into `AppModule` and `main.ts`, and writes the app key and secret into `.env`, which every `nest start` script (`start`, `start:dev`, `start:debug`) then loads. In production, set `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment instead.
+## Consideraciones de mantenimiento
 
-Or do it by hand:
+Los productos comienzan en `DRAFT`. Para publicar un producto se necesita al
+menos una variante activa. No se puede desactivar la última variante activa
+de un producto publicado. Archivar un producto lo oculta del escaparate digital; se
+puede volver a publicar si conserva una variante activa.
 
-```bash
-$ pnpm install @nestjs/observe
-```
+Los SKU son únicos y los códigos de barras no nulos también. Los precios deben
+ser positivos; cuando existe un precio de referencia, debe superar el precio
+vigente. Las categorías activas requieren un padre activo, no se permiten
+ciclos jerárquicos y una categoría con descendientes activos no puede
+desactivarse.
 
-Then follow the [setup guide](https://docs.nestjs.com/observability/sdk) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Al añadir migraciones o cambiar los contratos, actualiza sus pruebas y
+documentación. Usa siempre bases de datos dedicadas para pruebas y verifica
+`DATABASE_URL` antes de migrar.

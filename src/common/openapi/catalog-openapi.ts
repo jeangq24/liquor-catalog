@@ -6,8 +6,10 @@ export function createAdminOpenApiDocument(
   app: INestApplication,
 ): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle('LicoresYaaa Catalog Admin API')
-    .setDescription('Administrative API for trusted BFF callers.')
+    .setTitle('API administrativa de LicoresYaaa Catalog')
+    .setDescription(
+      'API para administrar el catálogo mediante un BFF de confianza. Requiere autenticación y permisos por operación.',
+    )
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'catalog-admin')
     .build();
@@ -27,8 +29,10 @@ export function createPublicOpenApiDocument(
   app: INestApplication,
 ): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle('LicoresYaaa Public Catalog API')
-    .setDescription('Public commercial catalog for the storefront.')
+    .setTitle('API pública de LicoresYaaa Catalog')
+    .setDescription(
+      'Consulta pública del catálogo comercial para el storefront. Solo expone productos publicados, marcas activas y categorías activas.',
+    )
     .setVersion('1.0')
     .build();
   const document = SwaggerModule.createDocument(app, config);
@@ -49,8 +53,10 @@ export function createInternalOpenApiDocument(
   app: INestApplication,
 ): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle('LicoresYaaa Catalog Service API')
-    .setDescription('Internal API for trusted service callers.')
+    .setTitle('API interna de LicoresYaaa Catalog')
+    .setDescription(
+      'API de consulta de variantes para servicios de confianza. Requiere autenticación mediante token de servicio.',
+    )
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'catalog-service')
     .build();

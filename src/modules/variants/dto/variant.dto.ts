@@ -11,14 +11,22 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateVariantDto {
-  @ApiProperty({ minLength: 1, maxLength: 120 })
+  @ApiProperty({
+    minLength: 1,
+    maxLength: 120,
+    description: 'Nombre de la presentación comercial; no puede estar vacío.',
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(120)
   @Matches(/\S/)
   readonly name!: string;
 
-  @ApiProperty({ minLength: 1, maxLength: 80 })
+  @ApiProperty({
+    minLength: 1,
+    maxLength: 80,
+    description: 'SKU único de la variante; no puede estar vacío.',
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(80)
@@ -30,6 +38,7 @@ export class CreateVariantDto {
     minLength: 1,
     maxLength: 80,
     nullable: true,
+    description: 'Código de barras opcional; admite null.',
   })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
@@ -45,6 +54,7 @@ export class CreateVariantDto {
     minimum: 1,
     maximum: 2147483647,
     nullable: true,
+    description: 'Volumen en mililitros; debe ser un entero positivo o null.',
   })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
@@ -59,6 +69,7 @@ export class CreateVariantDto {
     minimum: 1,
     maximum: 2147483647,
     default: 1,
+    description: 'Cantidad de unidades por paquete; entero positivo.',
   })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
@@ -69,7 +80,8 @@ export class CreateVariantDto {
   @ApiProperty({
     type: String,
     pattern: '^[1-9][0-9]{0,18}$',
-    description: 'COP as a positive decimal string, up to 9223372036854775807.',
+    description:
+      'Precio vigente positivo en COP como cadena decimal entera, hasta 9223372036854775807.',
   })
   @IsString()
   @Matches(/^[1-9][0-9]{0,18}$/)
@@ -79,7 +91,7 @@ export class CreateVariantDto {
     type: String,
     nullable: true,
     description:
-      'Decimal-string reference price greater than the current price.',
+      'Precio de referencia en COP como cadena decimal; debe superar el precio vigente.',
   })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
@@ -90,7 +102,12 @@ export class CreateVariantDto {
 }
 
 export class UpdateVariantDto {
-  @ApiPropertyOptional({ type: String, minLength: 1, maxLength: 120 })
+  @ApiPropertyOptional({
+    type: String,
+    minLength: 1,
+    maxLength: 120,
+    description: 'Nuevo nombre de la presentación; no puede estar vacío.',
+  })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @MinLength(1)
@@ -98,7 +115,12 @@ export class UpdateVariantDto {
   @Matches(/\S/)
   readonly name?: string;
 
-  @ApiPropertyOptional({ type: String, minLength: 1, maxLength: 80 })
+  @ApiPropertyOptional({
+    type: String,
+    minLength: 1,
+    maxLength: 80,
+    description: 'Nuevo SKU único; no puede estar vacío.',
+  })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @MinLength(1)
@@ -111,6 +133,7 @@ export class UpdateVariantDto {
     minLength: 1,
     maxLength: 80,
     nullable: true,
+    description: 'Nuevo código de barras; admite null.',
   })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
@@ -126,6 +149,7 @@ export class UpdateVariantDto {
     minimum: 1,
     maximum: 2147483647,
     nullable: true,
+    description: 'Nuevo volumen en mililitros; entero positivo o null.',
   })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,
@@ -135,7 +159,12 @@ export class UpdateVariantDto {
   @Max(2147483647)
   readonly volumeMl?: number | null;
 
-  @ApiPropertyOptional({ type: 'integer', minimum: 1, maximum: 2147483647 })
+  @ApiPropertyOptional({
+    type: 'integer',
+    minimum: 1,
+    maximum: 2147483647,
+    description: 'Nueva cantidad de unidades por paquete; entero positivo.',
+  })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
   @Min(1)
@@ -145,7 +174,8 @@ export class UpdateVariantDto {
   @ApiPropertyOptional({
     type: String,
     pattern: '^[1-9][0-9]{0,18}$',
-    description: 'COP as a positive decimal string, up to 9223372036854775807.',
+    description:
+      'Nuevo precio vigente positivo en COP como cadena decimal entera, hasta 9223372036854775807.',
   })
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
@@ -156,7 +186,7 @@ export class UpdateVariantDto {
     type: String,
     nullable: true,
     description:
-      'Decimal-string reference price greater than the current price.',
+      'Nuevo precio de referencia en COP como cadena decimal; debe superar el precio vigente.',
   })
   @ValidateIf(
     (_object, value: unknown) => value !== undefined && value !== null,

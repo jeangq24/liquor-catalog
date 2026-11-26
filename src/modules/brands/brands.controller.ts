@@ -12,7 +12,16 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiCreatedResponse,
+  ApiConflictResponse,
+  ApiOkResponse,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   ApiAdminController,
   ApiPageResponse,
@@ -27,7 +36,7 @@ import { BrandsService } from './brands.service.js';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto.js';
 
 @Controller('admin/v1/brands')
-@ApiAdminController('Admin brands')
+@ApiAdminController('Administración de marcas')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -40,6 +49,10 @@ export class BrandsController {
   constructor(private readonly brands: BrandsService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar marcas administrativas' })
+  @ApiBadRequestResponse({
+    description: 'Los filtros o parámetros de paginación no son válidos.',
+  })
   @ApiPageResponse(BrandResponseDto)
   @RequirePermissions(CatalogPermission.BRAND_READ)
   list(@Query() query: ActiveSearchQueryDto) {
@@ -47,21 +60,52 @@ export class BrandsController {
   }
 
   @Get(':id')
-  @ApiOkResponse({ type: BrandResponseDto })
+  @ApiOperation({ summary: 'Consultar una marca por UUID' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la marca.',
+  })
+  @ApiBadRequestResponse({ description: 'El UUID de la marca no es válido.' })
+  @ApiNotFoundResponse({ description: 'No se encontró la marca.' })
+  @ApiOkResponse({ type: BrandResponseDto, description: 'Marca consultada.' })
   @RequirePermissions(CatalogPermission.BRAND_READ)
   find(@Param('id', ParseUUIDPipe) id: string) {
     return this.brands.findById(id);
   }
 
   @Post()
-  @ApiCreatedResponse({ type: BrandResponseDto })
+  @ApiOperation({ summary: 'Crear una marca' })
+  @ApiBadRequestResponse({
+    description: 'Los datos enviados no cumplen las validaciones.',
+  })
+  @ApiConflictResponse({
+    description: 'El nombre o el slug ya están registrados.',
+  })
+  @ApiCreatedResponse({
+    type: BrandResponseDto,
+    description: 'Marca creada.',
+  })
   @RequirePermissions(CatalogPermission.BRAND_CREATE)
   create(@Body() dto: CreateBrandDto, @Headers('x-actor-id') actor: string) {
     return this.brands.create(dto, actor);
   }
 
   @Patch(':id')
-  @ApiOkResponse({ type: BrandResponseDto })
+  @ApiOperation({ summary: 'Actualizar una marca' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la marca.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID o los datos enviados no son válidos.',
+  })
+  @ApiConflictResponse({
+    description: 'El nombre o el slug ya están registrados.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró la marca.' })
+  @ApiOkResponse({ type: BrandResponseDto, description: 'Marca actualizada.' })
   @RequirePermissions(CatalogPermission.BRAND_UPDATE)
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -72,7 +116,15 @@ export class BrandsController {
   }
 
   @Patch(':id/activate')
-  @ApiOkResponse({ type: BrandResponseDto })
+  @ApiOperation({ summary: 'Activar una marca' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la marca.',
+  })
+  @ApiBadRequestResponse({ description: 'El UUID de la marca no es válido.' })
+  @ApiNotFoundResponse({ description: 'No se encontró la marca.' })
+  @ApiOkResponse({ type: BrandResponseDto, description: 'Marca activada.' })
   @RequirePermissions(CatalogPermission.BRAND_UPDATE)
   activate(
     @Param('id', ParseUUIDPipe) id: string,
@@ -82,7 +134,15 @@ export class BrandsController {
   }
 
   @Patch(':id/deactivate')
-  @ApiOkResponse({ type: BrandResponseDto })
+  @ApiOperation({ summary: 'Desactivar una marca' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la marca.',
+  })
+  @ApiBadRequestResponse({ description: 'El UUID de la marca no es válido.' })
+  @ApiNotFoundResponse({ description: 'No se encontró la marca.' })
+  @ApiOkResponse({ type: BrandResponseDto, description: 'Marca desactivada.' })
   @RequirePermissions(CatalogPermission.BRAND_DEACTIVATE)
   deactivate(
     @Param('id', ParseUUIDPipe) id: string,
@@ -93,12 +153,17 @@ export class BrandsController {
 }
 
 @Controller('public/v1/brands')
-@ApiTags('Public brands')
+@ApiTags('Consulta pública de marcas')
 export class PublicBrandsController {
   constructor(private readonly brands: BrandsService) {}
 
   @Get()
-  @ApiOkResponse({ type: BrandResponseDto, isArray: true })
+  @ApiOperation({ summary: 'Listar marcas activas' })
+  @ApiOkResponse({
+    type: BrandResponseDto,
+    isArray: true,
+    description: 'Marcas activas.',
+  })
   list() {
     return this.brands.list(true);
   }

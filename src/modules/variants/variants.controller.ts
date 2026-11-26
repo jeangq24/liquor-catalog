@@ -21,6 +21,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiConflictResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -40,7 +41,7 @@ import { CreateVariantDto, UpdateVariantDto } from './dto/variant.dto.js';
 import { VariantsService } from './variants.service.js';
 
 @Controller('admin/v1/products/:productId/variants')
-@ApiAdminController('Admin variants')
+@ApiAdminController('Administración de variantes')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -53,6 +54,16 @@ export class ProductVariantsController {
   constructor(private readonly variants: VariantsService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar variantes de un producto' })
+  @ApiParam({
+    name: 'productId',
+    format: 'uuid',
+    description: 'UUID estable del producto.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID o los parámetros de consulta no son válidos.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró el producto.' })
   @ApiPageResponse(VariantResponseDto)
   @RequirePermissions(CatalogPermission.PRODUCT_READ)
   list(
@@ -63,7 +74,23 @@ export class ProductVariantsController {
   }
 
   @Post()
-  @ApiCreatedResponse({ type: VariantResponseDto })
+  @ApiOperation({ summary: 'Crear una variante para un producto' })
+  @ApiParam({
+    name: 'productId',
+    format: 'uuid',
+    description: 'UUID estable del producto al que pertenecerá la variante.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Los datos enviados no cumplen las validaciones.',
+  })
+  @ApiConflictResponse({
+    description: 'El SKU o el código de barras ya están registrados.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró el producto.' })
+  @ApiCreatedResponse({
+    type: VariantResponseDto,
+    description: 'Variante creada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_CREATE)
   create(
     @Param('productId', ParseUUIDPipe) productId: string,
@@ -75,7 +102,7 @@ export class ProductVariantsController {
 }
 
 @Controller('admin/v1/variants')
-@ApiAdminController('Admin variants')
+@ApiAdminController('Administración de variantes')
 @UseGuards(CatalogAuthGuard, CatalogPermissionGuard)
 @UsePipes(
   new ValidationPipe({
@@ -88,14 +115,43 @@ export class VariantsController {
   constructor(private readonly variants: VariantsService) {}
 
   @Get(':id')
-  @ApiOkResponse({ type: VariantResponseDto })
+  @ApiOperation({ summary: 'Consultar una variante por UUID' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la variante.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID de la variante no es válido.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró la variante.' })
+  @ApiOkResponse({
+    type: VariantResponseDto,
+    description: 'Variante consultada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_READ)
   find(@Param('id', ParseUUIDPipe) id: string) {
     return this.variants.find(id);
   }
 
   @Patch(':id')
-  @ApiOkResponse({ type: VariantResponseDto })
+  @ApiOperation({ summary: 'Actualizar una variante' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la variante.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID o los datos enviados no son válidos.',
+  })
+  @ApiConflictResponse({
+    description: 'El SKU o el código de barras ya están registrados.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró la variante.' })
+  @ApiOkResponse({
+    type: VariantResponseDto,
+    description: 'Variante actualizada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -106,7 +162,20 @@ export class VariantsController {
   }
 
   @Patch(':id/activate')
-  @ApiOkResponse({ type: VariantResponseDto })
+  @ApiOperation({ summary: 'Activar una variante' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la variante.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID de la variante no es válido.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró la variante.' })
+  @ApiOkResponse({
+    type: VariantResponseDto,
+    description: 'Variante activada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_UPDATE)
   activate(
     @Param('id', ParseUUIDPipe) id: string,
@@ -116,7 +185,24 @@ export class VariantsController {
   }
 
   @Patch(':id/deactivate')
-  @ApiOkResponse({ type: VariantResponseDto })
+  @ApiOperation({ summary: 'Desactivar una variante' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la variante.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID de la variante no es válido.',
+  })
+  @ApiConflictResponse({
+    description:
+      'No se puede desactivar la última variante activa de un producto publicado.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró la variante.' })
+  @ApiOkResponse({
+    type: VariantResponseDto,
+    description: 'Variante desactivada.',
+  })
   @RequirePermissions(CatalogPermission.PRODUCT_DEACTIVATE)
   deactivate(
     @Param('id', ParseUUIDPipe) id: string,
@@ -127,7 +213,7 @@ export class VariantsController {
 }
 
 @Controller('internal/v1/variants')
-@ApiTags('Internal variants')
+@ApiTags('Consulta interna de variantes')
 @ApiBearerAuth('catalog-service')
 @UseGuards(CatalogServiceGuard)
 export class InternalVariantsController {
@@ -136,15 +222,26 @@ export class InternalVariantsController {
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({
-    summary: 'Resolve a variant and its current commercial price',
+    summary: 'Consultar variante y precio comercial vigente',
     description:
-      'Commerce must reject non-purchasable variants. Inventory can resolve inactive variants for historical references.',
+      'Commerce debe rechazar las variantes no comprables. Inventory puede consultar variantes inactivas para conservar referencias históricas.',
   })
-  @ApiParam({ name: 'id', format: 'uuid' })
-  @ApiOkResponse({ type: InternalVariantResponseDto })
-  @ApiBadRequestResponse({ description: 'Invalid variant UUID' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid service token' })
-  @ApiNotFoundResponse({ description: 'Variant not found' })
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'UUID estable de la variante en Catalog.',
+  })
+  @ApiOkResponse({
+    type: InternalVariantResponseDto,
+    description: 'Datos actuales de la variante y su condición de compra.',
+  })
+  @ApiBadRequestResponse({
+    description: 'El UUID de la variante no es válido.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Falta el token de servicio o no es válido.',
+  })
+  @ApiNotFoundResponse({ description: 'No se encontró la variante.' })
   find(@Param('id', ParseUUIDPipe) id: string) {
     return this.variants.findInternal(id);
   }
